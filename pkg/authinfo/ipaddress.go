@@ -2,6 +2,7 @@ package authinfo
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -27,5 +28,25 @@ func (ip *IPAddr) FromString(ipStr string) {
 		if e != nil {
 			panic(e.Error())
 		}
+	}
+}
+
+// SubnetMask return IP Address masked by subnet mask
+func (ip IPAddr) SubnetMask(mask int) IPAddr {
+	if mask < 0 || mask > 32 {
+		panic("Subnet mask must be in 0< and >32")
+	}
+	raw := uint32(ip.Octets[0]<<24 | ip.Octets[1]<<16 | ip.Octets[2]<<8 | ip.Octets[3])
+	rawMask := uint32(math.Pow(2, float64(mask))-1) << (32 - mask)
+	rawSubnet := raw & rawMask
+
+	var subnetOctets [4]uint64
+	for octet := 0; octet < 4; octet++ {
+		bit := octet * 8
+		subnetOctets[octet] = uint64(rawSubnet << bit >> 24)
+	}
+
+	return IPAddr{
+		Octets: subnetOctets,
 	}
 }
