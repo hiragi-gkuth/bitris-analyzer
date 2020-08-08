@@ -1,7 +1,6 @@
 package authinfo
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 )
@@ -11,17 +10,12 @@ type AuthDbData struct {
 	ID       string
 	Result   string
 	User     string
+	Password string
 	IP       string
 	Authtime float64
 	Detect   string
 	RTT      float64
-	Year     string
-	Month    string
-	Day      string
-	Hour     string
-	Minute   string
-	Second   string
-	Usecond  string
+	AuthAt   string
 	Kex      float64
 	NewKey   float64
 }
@@ -37,21 +31,21 @@ func (add AuthDbData) ConvertToAuthData() AuthData {
 	ad := AuthData{
 		ID:             intID,
 		User:           add.User,
+		Password:       add.Password,
+		IP:             toIPAddr(add.IP),
 		Success:        (add.Result == "Success"),
 		Attack:         (add.Detect == "Attack"),
 		Authtime:       add.Authtime,
 		ActualAuthtime: (add.Authtime - add.RTT),
 		RTT:            add.RTT,
-		AuthAt:         toTime(add.Year, add.Month, add.Day, add.Hour, add.Minute, add.Second, add.Usecond),
-		IP:             toIPAddr(add.IP),
+		AuthAt:         toTime(add.AuthAt),
 	}
 
 	return ad
 }
 
-func toTime(year string, month string, day string, hour string, minute string, second string, usecond string) time.Time {
-	datetimeString := fmt.Sprintf("%v/%v/%v %v:%v:%v.%v", year, month, day, hour, minute, second, usecond)
-	t, e := time.ParseInLocation("2006/01/02 15:04:05.000000", datetimeString, time.UTC)
+func toTime(datetimeString string) time.Time {
+	t, e := time.ParseInLocation("2006-01-02 15:04:05", datetimeString, time.UTC)
 	if e != nil {
 		panic(e)
 	}
