@@ -1,29 +1,24 @@
 package authinfo
 
 import (
-	"strconv"
 	"time"
+
+	"github.com/ip2location/ip2location-go"
+
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 )
 
 // AuthData is structure of manipulate
+// +gen * slice:"Where"
 type AuthData struct {
 	ID             int
 	User           string
 	Password       string
-	IP             IPAddr
+	IP             net.IP
+	GeoInfo        ip2location.IP2Locationrecord
 	Success        bool
-	Attack         bool
 	Authtime       float64
 	ActualAuthtime float64
 	RTT            float64
 	AuthAt         time.Time
-}
-
-// ToLoggable is converter for fluent logging
-func (a AuthData) ToLoggable() map[string]string {
-	return map[string]string{
-		"LoggedID": strconv.Itoa(a.ID),
-		"User":     a.User,
-		"IP":       a.IP.String(),
-	}
 }

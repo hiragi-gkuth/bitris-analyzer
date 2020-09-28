@@ -1,8 +1,14 @@
 package authinfo
 
 import (
+	"encoding/hex"
 	"strconv"
 	"time"
+	"unsafe"
+
+	"github.com/ip2location/ip2location-go"
+
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 )
 
 // AuthDbData express raw tables
@@ -15,7 +21,8 @@ type AuthDbData struct {
 	Authtime float64
 	Detect   string
 	RTT      float64
-	AuthAt   string
+	Unixtime int64
+	Usec     int64
 	Kex      float64
 	NewKey   float64
 }
@@ -25,35 +32,43 @@ func NewAuthDbData() AuthDbData {
 	return AuthDbData{}
 }
 
+// GeoInfo express posision
+type GeoInfo struct {
+	code string
+	lat  float64
+	long float64
+}
+
 // ConvertToAuthData is converter
-func (add AuthDbData) ConvertToAuthData() AuthData {
+func (add AuthDbData) ConvertToAuthData(geoDB *ip2location.DB) *AuthData {
 	intID, _ := strconv.Atoi(add.ID)
+
+	//24 ごとでチョットやってみる
+	ip := net.NewIPFromString(add.IP) //.SubnetMask(16)
+	geoResult, err := geoDB.Get_all(ip.String())
+	if err != nil {
+		panic(err.Error())
+	}
+
 	ad := AuthData{
 		ID:             intID,
-		User:           add.User,
-		Password:       add.Password,
-		IP:             toIPAddr(add.IP),
+		User:           hex2Ascii(add.User),
+		Password:       hex2Ascii(add.Password),
+		IP:             ip,
+		GeoInfo:        geoResult,
 		Success:        (add.Result == "Success"),
-		Attack:         (add.Detect == "Attack"),
 		Authtime:       add.Authtime,
 		ActualAuthtime: (add.Authtime - add.RTT),
 		RTT:            add.RTT,
-		AuthAt:         toTime(add.AuthAt),
+		AuthAt:         time.Unix(add.Unixtime, add.Usec*1000),
 	}
-
-	return ad
+	return &ad
 }
 
-func toTime(datetimeString string) time.Time {
-	t, e := time.ParseInLocation("2006-01-02 15:04:05", datetimeString, time.UTC)
+func hex2Ascii(hexString string) string {
+	decoded, e := hex.DecodeString(hexString)
 	if e != nil {
-		panic(e)
+		panic(e.Error() + hexString)
 	}
-	return t
-}
-
-func toIPAddr(ipAddrString string) IPAddr {
-	var ip IPAddr
-	ip.FromString(ipAddrString)
-	return ip
+	return *(*string)(unsafe.Pointer(&decoded))
 }

@@ -24,9 +24,7 @@ func New() Logger {
 	if err != nil {
 		panic(err.Error())
 	}
-	return Logger{
-		f: f,
-	}
+	return Logger{f}
 }
 
 // Log is logging to fluent
