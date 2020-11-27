@@ -1,40 +1,61 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
-	geo "github.com/kellydunn/golang-geo"
-
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
-
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authinfo"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
 )
 
-// IPPerformance is
-type IPPerformance map[net.IP][]ThresholdResult
-
 func main() {
-	// begin, _ := time.Parse("2006-01-02 15:04:05", "2020-09-01 00:00:00")
-	// end, _ := time.Parse("2006-01-02 15:04:05", "2020-09-07 00:00:00")
+	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-10-01 00:00:00")
+	end := begin.Add(24 * time.Hour * 7)
+	// simulator.ShowIPAndTimeSummariedThreshold()
+	simulator.ShowPerfomanceDifferenceOfIPSummariedAndOverall(begin, end)
+}
 
-	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-09-01 00:00:00")
-	end, _ := time.Parse("2006-01-02 15:04:05", "2020-09-28 00:00:00")
+/*
+
+func plottingCorrelation(server db.SSHServer) {
+	begin, _ := time.Parse(DTF, "2020-09-01 00:00:00")
+	end, _ := time.Parse(DTF, "2020-10-15 00:00:00")
+
+	db := db.NewDB(server)
+
+	attacks := db.FetchBetween(begin, end)
+	attacksW := attacks.Where(func(ad *authlog.AuthInfo) bool {
+		subnet := ad.IP.SubnetMask(16).String()
+		return subnet != "222.186.0.0" && subnet != "218.92.0.0" && subnet != "193.228.0.0" && subnet != "112.85.0.0" && subnet != "111.229.0.0" && subnet != "61.177.0.0" && subnet != "49.88.0.0"
+	})
+	fmt.Printf("%v", len(attacksW))
+	plotCorregram(attacksW, net.NewDefaultIP(), 1*time.Hour)
+
+	byIPSummary := summarizer.ByIP(attacks, 16)
+	for _, summary := range byIPSummary {
+		if len(summary.Auths) > 5000 {
+			plotCorregram(summary.Auths, summary.IP, 1*time.Hour)
+		}
+	}
+}
+
+// IPアドレス毎の過去指定日間における、平均のグラフを書く
+func plottingMyselfMap(server db.SSHServer) {
+	begin, _ := time.Parse(DTF, "2020-10-01 00:00:00")
+	end, _ := time.Parse(DTF, "2020-10-04 00:00:00")
 	interval := 7 * 24 * time.Hour
 
-	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
-		attacks := db.FetchBetween(seeker, seeker.Add(interval))
-		byIPSummary := SummaryByIPSubnet(attacks, 16)
+	bitris := db.NewDB(server)
 
-		for ip, auths := range byIPSummary {
-			plotMyselfMapByTime(auths, ip, seeker.String(), time.Hour)
+	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
+		attacks := bitris.FetchBetween(seeker, seeker.Add(interval))
+		byIPSummary := summarizer.ByIP(attacks, 16)
+		for _, summary := range byIPSummary {
+			plotMyselfMapByTime(summary.Auths, summary.IP, seeker.String(), time.Hour)
 		}
 	}
 }
 
 // 攻撃元の座標別にRTTのの平均値を取ったMapを返す
-func averageByCountry(attacks authinfo.AuthDataSlice) map[geo.Point]float64 {
+func averageByCountry(attacks authlog.AuthInfoSlice) map[geo.Point]float64 {
 	geoRTTMap := make(map[geo.Point]float64)
 	geoCounterMap := make(map[geo.Point]int)
 
@@ -62,23 +83,4 @@ func averageByCountry(attacks authinfo.AuthDataSlice) map[geo.Point]float64 {
 	}
 	return result
 }
-
-func byTimeThreshold() {
-	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-07-07 00:00:00")
-	end, _ := time.Parse("2006-01-02 15:04:05", "2020-07-14 00:00:00")
-	interval, _ := time.ParseDuration("1h")
-	authDataList := db.FetchBetween(begin, end)
-
-	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
-		s := seeker
-		e := seeker.Add(interval)
-		partialList := authDataList.Where(func(ad *authinfo.AuthData) bool {
-			return ad.AuthAt.After(s) && ad.AuthAt.Before(e)
-		})
-		for perc := 0.8; perc < 0.99; perc += 0.01 {
-			threshold := CalcThresholdWithRTT(partialList, perc, 5)
-			fmt.Printf("%.3f,", threshold)
-		}
-		fmt.Printf("\n")
-	}
-}
+*/

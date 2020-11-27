@@ -1,3 +1,4 @@
+// Package db is ORM for Bitris DataBase
 package db
 
 import (
@@ -6,12 +7,20 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-type bitris struct {
-	*sql.DB
+// Bitris is DB ORM
+type Bitris struct {
+	Server SSHServer
+	DB     *sql.DB
 }
 
-// GetDbConnection return db connection
-func getDbConnection() *bitris {
+// NewDB Returns DB ORM instance
+func NewDB(server SSHServer) *Bitris {
+	db := getDBConnection()
+	return &Bitris{server, db}
+}
+
+// getDBConnection return db connection
+func getDBConnection() *sql.DB {
 	config := mysql.NewConfig()
 
 	config.User = "hiragi-gkuth"
@@ -25,5 +34,5 @@ func getDbConnection() *bitris {
 	if err != nil {
 		panic(err.Error())
 	}
-	return &bitris{db}
+	return db
 }

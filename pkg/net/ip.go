@@ -60,3 +60,13 @@ func (ip IP) SubnetMask(mask int) IP {
 		Octets: subnetOctets,
 	}
 }
+
+// Equal method for go-cmp
+func (ip IP) Equal(cmp IP) bool {
+	for i := 0; i < 4; i++ {
+		if ip.Octets[i] != cmp.Octets[i] {
+			return false
+		}
+	}
+	return true
+}

@@ -1,4 +1,4 @@
-package authinfo
+package authlog
 
 import (
 	"time"
@@ -8,9 +8,9 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 )
 
-// AuthData is structure of manipulate
+// AuthInfo is structure of manipulate
 // +gen * slice:"Where"
-type AuthData struct {
+type AuthInfo struct {
 	ID             int
 	User           string
 	Password       string

@@ -1,4 +1,4 @@
-package authinfo
+package authlog
 
 import (
 	"encoding/hex"
@@ -11,8 +11,8 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 )
 
-// AuthDbData express raw tables
-type AuthDbData struct {
+// AuthRawInfo express raw tables
+type AuthRawInfo struct {
 	ID       string
 	Result   string
 	User     string
@@ -27,9 +27,9 @@ type AuthDbData struct {
 	NewKey   float64
 }
 
-// NewAuthDbData returns empty structure
-func NewAuthDbData() AuthDbData {
-	return AuthDbData{}
+// NewAuthRawInfo returns empty structure
+func NewAuthRawInfo() AuthRawInfo {
+	return AuthRawInfo{}
 }
 
 // GeoInfo express posision
@@ -39,8 +39,8 @@ type GeoInfo struct {
 	long float64
 }
 
-// ConvertToAuthData is converter
-func (add AuthDbData) ConvertToAuthData(geoDB *ip2location.DB) *AuthData {
+// ConvertToAuthInfo is converter
+func (add AuthRawInfo) ConvertToAuthInfo(geoDB *ip2location.DB) *AuthInfo {
 	intID, _ := strconv.Atoi(add.ID)
 
 	//24 ごとでチョットやってみる
@@ -50,7 +50,7 @@ func (add AuthDbData) ConvertToAuthData(geoDB *ip2location.DB) *AuthData {
 		panic(err.Error())
 	}
 
-	ad := AuthData{
+	ad := AuthInfo{
 		ID:             intID,
 		User:           hex2Ascii(add.User),
 		Password:       hex2Ascii(add.Password),

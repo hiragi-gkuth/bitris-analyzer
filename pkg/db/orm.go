@@ -2,73 +2,72 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/ip2location/ip2location-go"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authinfo"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
 )
 
-// Querying execute sql from raw string
-func Querying(query string) []*authinfo.AuthData {
-	// start := time.Now()
-
-	db := getDbConnection()
-	geoDb, err := ip2location.OpenDB("../../assets/geo/IP2LOCATION-LITE-DB5.BIN")
+// querying execute sql from raw string
+func querying(query string, db *sql.DB) []*authlog.AuthInfo {
+	geoDB, err := ip2location.OpenDB("../../assets/geo/IP2LOCATION-LITE-DB5.BIN")
 
 	if err != nil {
 		panic(err.Error())
 	}
 
+	now := time.Now()
 	rows, err := db.Query(query)
 	if err != nil {
 		panic(err.Error())
 	}
 	defer rows.Close()
-	// fmt.Printf("Query: %s\n", time.Since(start))
+	fmt.Printf("query time: %v\n", time.Since(now))
 
-	authDataList := make([]*authinfo.AuthData, 0)
-	// start = time.Now()
+	authInfoList := authlog.AuthInfoSlice{}
+	now = time.Now()
 	for rows.Next() {
-		authDbData := mapper(rows)
-		authDataList = append(authDataList, authDbData.ConvertToAuthData(geoDb))
+		authRawInfo := mapper(rows)
+		authInfoList = append(authInfoList, authRawInfo.ConvertToAuthInfo(geoDB))
 	}
-	// fmt.Printf("Convert: %s\n", time.Since(start))
-	return authDataList
+	fmt.Printf("convert time: %v\n", time.Since(now))
+	return authInfoList
 }
 
-func mapper(rows *sql.Rows) authinfo.AuthDbData {
+func mapper(rows *sql.Rows) authlog.AuthRawInfo {
 	nullableUserName := sql.NullString{}
 	nullablePassword := sql.NullString{}
-	authDbData := authinfo.NewAuthDbData()
+	authRawInfo := authlog.NewAuthRawInfo()
 	err := rows.Scan(
-		&authDbData.ID,
-		&authDbData.Result,
+		&authRawInfo.ID,
+		&authRawInfo.Result,
 		&nullableUserName,
 		&nullablePassword,
-		&authDbData.IP,
-		&authDbData.Authtime,
-		&authDbData.Detect,
-		&authDbData.RTT,
-		&authDbData.Unixtime,
-		&authDbData.Usec,
-		&authDbData.Kex,
-		&authDbData.NewKey,
+		&authRawInfo.IP,
+		&authRawInfo.Authtime,
+		&authRawInfo.Detect,
+		&authRawInfo.RTT,
+		&authRawInfo.Unixtime,
+		&authRawInfo.Usec,
+		&authRawInfo.Kex,
+		&authRawInfo.NewKey,
 	)
 	if err != nil {
 		panic(err.Error())
 	}
 	if nullableUserName.Valid {
-		authDbData.User = nullableUserName.String
+		authRawInfo.User = nullableUserName.String
 	} else {
-		authDbData.User = ""
+		authRawInfo.User = ""
 	}
 	if nullablePassword.Valid {
-		authDbData.Password = nullablePassword.String
+		authRawInfo.Password = nullablePassword.String
 	} else {
-		authDbData.Password = ""
+		authRawInfo.Password = ""
 	}
-	return authDbData
+	return authRawInfo
 }
 
 func formatDateTime(t time.Time) string {

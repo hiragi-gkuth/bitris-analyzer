@@ -5,32 +5,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authinfo"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 )
 
 // FetchSuccessSamples returns all success with password authentication
-func FetchSuccessSamples() authinfo.AuthDataSlice {
+func (b *Bitris) FetchSuccessSamples() authlog.AuthInfoSlice {
 	query := fmt.Sprintf("SELECT * FROM successsample WHERE result LIKE '%%Suc%%' AND password LIKE '70617373%%'")
-	return Querying(query)
+	return querying(query, b.DB)
 }
 
 // FetchLatest returns latest logs
-func FetchLatest(limit int) authinfo.AuthDataSlice {
-	query := fmt.Sprintf("SELECT * FROM uehara ORDER BY id DESC LIMIT %v", limit)
-	return Querying(query)
+func (b *Bitris) FetchLatest(limit int) authlog.AuthInfoSlice {
+	query := fmt.Sprintf("SELECT * FROM %s ORDER BY id DESC LIMIT %v", b.Server.TableName(), limit)
+	return querying(query, b.DB)
 }
 
 // FetchBetween returns logs between two times, Order by latest
-func FetchBetween(begin time.Time, end time.Time) authinfo.AuthDataSlice {
-	query := fmt.Sprintf("SELECT * FROM uehara WHERE unixtime BETWEEN '%v' AND '%v'", begin.Unix(), end.Unix())
-	return Querying(query)
+func (b *Bitris) FetchBetween(begin time.Time, end time.Time) authlog.AuthInfoSlice {
+	query := fmt.Sprintf("SELECT * FROM %s WHERE unixtime BETWEEN '%v' AND '%v'", b.Server.TableName(), begin.Unix(), end.Unix())
+	return querying(query, b.DB)
 }
 
 // FetchByIP returns logs by IP Address.
-func FetchByIP(ip net.IP, subnetMask int) authinfo.AuthDataSlice {
+func (b *Bitris) FetchByIP(ip net.IP, subnetMask int) authlog.AuthInfoSlice {
 	subnet := ip.SubnetMask(subnetMask)
 	searchString := strings.ReplaceAll(subnet.String(), "0", "")
-	query := fmt.Sprintf("SELECT * FROM uehara WHERE IP LIKE \"%%%v%%\"", searchString)
-	return Querying(query)
+	query := fmt.Sprintf("SELECT * FROM %s WHERE IP LIKE \"%%%v%%\"", b.Server.TableName(), searchString)
+	return querying(query, b.DB)
 }

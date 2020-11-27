@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authinfo"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
 
 	"github.com/fluent/fluent-logger-golang/fluent"
@@ -16,7 +16,7 @@ import (
 
 func main() {
 	showTopScores()
-	topScoreAuthTime := fetchBestScoreAuthData().Authtime
+	topScoreAuthTime := fetchBestScoreAuthInfo().Authtime
 	fastest := float64(1000.0)
 
 	var username string
@@ -33,7 +33,7 @@ func main() {
 		fmt.Print("Password: ")
 		fmt.Scanf("%s", &inputStr)
 
-		duration := time.Now().Sub(start)
+		duration := time.Since(start)
 
 		if strings.Compare(inputStr, "exit") == 0 {
 			break
@@ -95,13 +95,14 @@ func ascii2Hex(asciiString string) string {
 }
 
 func showTopScores() {
-	fastest := fetchBestScoreAuthData()
+	fastest := fetchBestScoreAuthInfo()
 	fmt.Printf("The fastest typing speed of 'password' is %v by %v!!!!\n", fastest.Authtime, fastest.User)
 }
 
-func fetchBestScoreAuthData() authinfo.AuthData {
-	successes := db.FetchSuccessSamples()
-	fastest := successes.Max(func(s *authinfo.AuthData) float64 { return s.Authtime })
+func fetchBestScoreAuthInfo() authlog.AuthInfo {
+	bitris := db.NewDB(db.Cririn)
+	successes := bitris.FetchSuccessSamples()
+	fastest := successes.Max(func(s *authlog.AuthInfo) float64 { return s.Authtime })
 
 	return fastest
 }

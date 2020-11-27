@@ -1,3 +1,4 @@
+// Package db は，いっぱい機能を提供します
 package db
 
 // SSHServer type express log targets
