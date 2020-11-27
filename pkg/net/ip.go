@@ -1,3 +1,4 @@
+// Package net は，ネットワークプロトコルに関する機能を提供する
 package net
 
 import (

@@ -1,6 +1,8 @@
 package simulator
 
-import "github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
+import (
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
+)
 
 // Threshold は，OpenSSHサーバ上におけるしきい値のデータ構造を模倣する構造体
 type Threshold struct {

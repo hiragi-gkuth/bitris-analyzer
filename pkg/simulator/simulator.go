@@ -2,7 +2,10 @@ package simulator
 
 import (
 	"errors"
+	"fmt"
 	"time"
+
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
 )
 
 // DTF is DateTimeFormat
@@ -39,10 +42,11 @@ type Simulator struct {
 	TestBegin    time.Time
 	TestEnd      time.Time
 	Type         SimulationType
+	WithRTT      bool
 }
 
 // NewSimulator は，与えられた解析期間，テスト期間で性能のシミュレーションを行う構造体を返す
-func NewSimulator(analyzeBegin, analyzeEnd, testBegin, testEnd time.Time, simType SimulationType) (*Simulator, error) {
+func NewSimulator(analyzeBegin, analyzeEnd, testBegin, testEnd time.Time, simType SimulationType, withRTT bool) (ISimulator, error) {
 	if analyzeEnd.After(testBegin) {
 		err := errors.New("analyzeEnd must be before testBegin")
 		return nil, err
@@ -57,5 +61,33 @@ func NewSimulator(analyzeBegin, analyzeEnd, testBegin, testEnd time.Time, simTyp
 		TestBegin:    testBegin,
 		TestEnd:      testEnd,
 		Type:         simType,
+		WithRTT:      withRTT,
 	}, nil
+}
+
+// Test は，実際にシミュレーションを実行します
+func (s Simulator) Test() {
+	bitris := db.NewDB(db.Uehara)
+	aAttacks := bitris.FetchBetween(s.AnalyzeBegin, s.AnalyzeEnd)
+	tAttacks := bitris.FetchBetween(s.TestBegin, s.TestEnd)
+	regulars := bitris.FetchSuccessSamples()
+
+	fmt.Printf("** Bitris System Simulator **\n")
+	fmt.Printf("Analyze Duration: %v - %v\n", s.AnalyzeBegin, s.AnalyzeEnd)
+	fmt.Printf("Testing Duration: %v - %v\n", s.TestBegin, s.TestEnd)
+
+	if s.Type&Legacy != 0 {
+		s.showLegacyMethodPerformance(aAttacks, tAttacks, regulars)
+	}
+	if s.Type&IPSummarized != 0 {
+		s.showIPSummarizedPerformance(aAttacks, tAttacks, regulars)
+	}
+	if s.Type&IPSummarized != 0 {
+		{
+		}
+	}
+	if s.Type&IPSummarized != 0 {
+		{
+		}
+	}
 }

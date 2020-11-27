@@ -2,7 +2,6 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/ip2location/ip2location-go"
@@ -18,21 +17,21 @@ func querying(query string, db *sql.DB) []*authlog.AuthInfo {
 		panic(err.Error())
 	}
 
-	now := time.Now()
+	// now := time.Now()
 	rows, err := db.Query(query)
 	if err != nil {
 		panic(err.Error())
 	}
 	defer rows.Close()
-	fmt.Printf("query time: %v\n", time.Since(now))
+	// fmt.Printf("query time: %v\n", time.Since(now))
 
 	authInfoList := authlog.AuthInfoSlice{}
-	now = time.Now()
+	// now = time.Now()
 	for rows.Next() {
 		authRawInfo := mapper(rows)
 		authInfoList = append(authInfoList, authRawInfo.ConvertToAuthInfo(geoDB))
 	}
-	fmt.Printf("convert time: %v\n", time.Since(now))
+	// fmt.Printf("convert time: %v\n", time.Since(now))
 	return authInfoList
 }
 
