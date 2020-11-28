@@ -3,30 +3,66 @@ package main
 import (
 	"time"
 
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/plotter"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
 )
 
 func main() {
-	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-10-01 00:00:00")
-	end := begin.Add(24 * time.Hour * 7 * 4)
-	interval, _ := time.ParseDuration("240h")
-	analyzeDataRatio := 0.8
+	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-09-25 00:00:00")
+	end, _ := time.Parse("2006-01-02 15:04:05", "2020-09-26 00:00:00")
+	simulateDuration, _ := time.ParseDuration("12h")
+	interval, _ := time.ParseDuration("2h")
+	analyzeRatio := 0.8
+	subnetMask := 16
+	withRTT := true
 
+	topIPsFilter := func(a *authlog.AuthInfo) bool {
+		subnet := a.IP.SubnetMask(16).String()
+		topIPs := []string{
+			"49.88.0.0",
+			"112.85.0.0",
+			"122.85.0.0",
+			"61.117.0.0",
+		}
+		for _, ip := range topIPs {
+			if subnet == ip {
+				return false
+			}
+		}
+		return true
+	}
+
+	// noFilter := func(a *authlog.AuthInfo) bool {
+	// 	return true
+	// }
+
+	// DO simulations
+	resultsSlice := []simulator.SimulationResults{}
 	for b := begin; b.Before(end); b = b.Add(interval) {
-		// analyze durations
-		aBegin := b
-		aEnd := aBegin.Add(time.Duration(float64(interval) * analyzeDataRatio))
-		// test durations
-		tBegin := aEnd.Add(0)
-		tEnd := tBegin.Add(time.Duration(float64(interval) * (1 - analyzeDataRatio)))
-
-		simulator, e := simulator.NewSimulator(aBegin, aEnd, tBegin, tEnd, simulator.Legacy|simulator.IPSummarized, true)
+		// simulation duration
+		begin := b
+		end := begin.Add(simulateDuration)
+		simulator, e := simulator.NewSimulator(begin, end, analyzeRatio, simulator.Legacy|simulator.IPSummarized, withRTT)
 		if e != nil {
 			panic(e.Error())
 		}
-		simulator.Test()
+		simulator.SetSubnetMask(subnetMask)
+		results := simulator.Test(topIPsFilter)
+		resultsSlice = append(resultsSlice, results)
 	}
 
+	// plotting
+	plotter.SimulationResultsGraph(resultsSlice, plotter.SimulationResultParams{
+		Begin:            begin,
+		End:              end,
+		Interval:         interval,
+		SimulateDuration: simulateDuration,
+		AnalyzeRatio:     analyzeRatio,
+		SubnetMask:       subnetMask,
+		WithRTT:          withRTT,
+		FilterName:       "Top4IPFilter",
+	})
 }
 
 /*

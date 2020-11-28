@@ -1,15 +1,7 @@
 // Package simulator は，各種Bitrisシステムを使って様々なデータを取得，表示する操作をする
 package simulator
 
-import (
-	"fmt"
-	"time"
-
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/plotter"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/summarizer"
-)
+/*
 
 // ShowIPAndTimeSummariedThreshold は，IPと時間帯ごとのそれぞれの最善しきい値を計算して出力する
 func ShowIPAndTimeSummariedThreshold() {
@@ -87,6 +79,5 @@ func ShowPerfomanceDifferenceOfIPSummariedAndOverall(begin, end time.Time) {
 	fmt.Printf("summaried threshold: %.3f, performance: %.3f\n", 0.0, perfScore)
 }
 
-func TestPerformanceByUsingPreviousThresholds(interval time.Duration, begin, end time.Time) {
-	// 	bitris := db.NewDB(db.Uehara)
-}
+
+*/
