@@ -44,7 +44,7 @@ type ISimulator interface {
 
 // Simulator は，Simulator package が提供する機能をまとめる構造体
 type Simulator struct {
-	server        db.SSHServer
+	serverID      string
 	simulateRange []time.Time
 	fetchRange    []time.Time
 	regulars      authlog.AuthInfoSlice
@@ -58,9 +58,9 @@ type Simulator struct {
 }
 
 // New は，新たなシミュレータ構造体を返す
-func New(simulationServer db.SSHServer) ISimulator {
+func New(simulationServerID string) ISimulator {
 	return &Simulator{
-		server: simulationServer,
+		serverID: simulationServerID,
 	}
 }
 
@@ -96,7 +96,7 @@ func (s *Simulator) AttacksFilter(attacksFilter func(a *authlog.AuthInfo) bool) 
 
 // Prefetch は，シミュレーション開始前にデータを取得しておく
 func (s *Simulator) Prefetch() {
-	bitris := db.NewDB(s.server)
+	bitris := db.NewDB(s.serverID)
 	// regulars が取得されていない場合のみ取得
 	if s.regulars == nil {
 		log.Println("Simulator Prefetch Regulars")

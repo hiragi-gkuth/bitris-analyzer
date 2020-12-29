@@ -11,14 +11,14 @@ import (
 
 // Bitris is DB ORM
 type Bitris struct {
-	Server SSHServer
-	DB     *sql.DB
+	ServerID string
+	DB       *sql.DB
 }
 
 // NewDB Returns DB ORM instance
-func NewDB(server SSHServer) *Bitris {
+func NewDB(serverID string) *Bitris {
 	db := getDBConnection()
-	return &Bitris{server, db}
+	return &Bitris{serverID, db}
 }
 
 // getDBConnection return db connection

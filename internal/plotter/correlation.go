@@ -18,11 +18,11 @@ import (
 	"gonum.org/v1/plot/vg"
 )
 
-func plottingCorrelation(server db.SSHServer) {
+func plottingCorrelation(serverID string) {
 	begin, _ := time.Parse(DateTimeFormat, "2020-09-01 00:00:00")
 	end, _ := time.Parse(DateTimeFormat, "2020-10-15 00:00:00")
 
-	db := db.NewDB(server)
+	db := db.NewDB(serverID)
 
 	attacks := db.FetchBetween(begin, end)
 	attacksW := attacks.Where(func(ad *authlog.AuthInfo) bool {
@@ -41,12 +41,12 @@ func plottingCorrelation(server db.SSHServer) {
 }
 
 // IPアドレス毎の過去指定日間における、平均のグラフを書く
-func plottingMyselfMap(server db.SSHServer) {
+func plottingMyselfMap(serverID string) {
 	begin, _ := time.Parse(DateTimeFormat, "2020-10-01 00:00:00")
 	end, _ := time.Parse(DateTimeFormat, "2020-10-04 00:00:00")
 	interval := 7 * 24 * time.Hour
 
-	bitris := db.NewDB(server)
+	bitris := db.NewDB(serverID)
 
 	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
 		attacks := bitris.FetchBetween(seeker, seeker.Add(interval))
