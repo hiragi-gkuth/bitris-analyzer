@@ -2,8 +2,8 @@ package simulator
 
 import "time"
 
-// SimulationResult は，シミュレーション結果を格納する型
-type SimulationResult struct {
+// Result は，シミュレーション結果を格納する型
+type Result struct {
 	BaseThreshold    float64
 	HitRate          float64
 	DetectionRate    float64
@@ -11,10 +11,10 @@ type SimulationResult struct {
 	Performance      float64
 }
 
-// SimulationResults は，結果のまとめ
-type SimulationResults struct {
+// Results は，結果のまとめ
+type Results struct {
 	Begin         time.Time
 	End           time.Time
 	FilteredRatio float64
-	Results       map[SimulationType]SimulationResult
+	Of            map[SimulateType]Result
 }

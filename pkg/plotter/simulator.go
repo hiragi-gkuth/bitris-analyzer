@@ -1,8 +1,8 @@
 package plotter
 
 import (
+	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
@@ -25,43 +25,46 @@ type SimulationResultParams struct {
 }
 
 // SimulationResultsGraph は，シミュレーション結果をグラフに描画します
-func SimulationResultsGraph(resultsSlice []simulator.SimulationResults, param SimulationResultParams) {
-	plot, e := plot.New()
+func SimulationResultsGraph(resultsSlice []simulator.Results, param SimulationResultParams) {
+	p, e := plot.New()
 	if e != nil {
 		panic(e.Error())
 	}
 
 	// Title
-	plot.Title.TextStyle.Font.Size = vg.Points(12.0)
-	plot.Title.Text = ""
+	p.Title.TextStyle.Font.Size = vg.Points(12.0)
+	// タイトルに描画する必要な情報を収集
+	var legacyPerformanceSum float64
+	var ipSummarizedPerformanceSum float64
+	for _, results := range resultsSlice {
+		legacyPerformanceSum += results.Of[simulator.Legacy].Performance
+		ipSummarizedPerformanceSum += results.Of[simulator.IPSummarized].Performance
+	}
+	p.Title.Text = fmt.Sprintf("Legacy: %.3f, IPSummarized: %.3f, Improvement: %.3f\nImprove Ratio: %.1f%%",
+		legacyPerformanceSum,
+		ipSummarizedPerformanceSum,
+		ipSummarizedPerformanceSum-legacyPerformanceSum,
+		((ipSummarizedPerformanceSum/legacyPerformanceSum)-1.0)*100)
 
 	// X 軸のラベルたちを設定する
 	labelX := []string{}
 	for date := param.Begin; !date.After(param.End); date = date.Add(param.Interval) {
-		// ラベルの文字列は，計測インターバルが一日以下であれば，月と日と時間，それ以上なら月と日のみ
-		var format string
-		if param.Interval.Hours() < 24 {
-			format = "01-02 15:04"
-		} else {
-			format = "01-02"
-		}
+		format := "01-02 15:04 "
 		labelX = append(labelX, date.Format(format))
 	}
 
 	// DataPlotting
-	detecPointsMap := make(map[simulator.SimulationType]plotter.XYs)
-	misDetecPointsMap := make(map[simulator.SimulationType]plotter.XYs)
-	perfPointsMap := make(map[simulator.SimulationType]plotter.XYs)
-	hitRatePointsMap := make(map[simulator.SimulationType]plotter.XYs)
+	detecPointsMap := make(map[simulator.SimulateType]plotter.XYs)
+	misDetecPointsMap := make(map[simulator.SimulateType]plotter.XYs)
+	perfPointsMap := make(map[simulator.SimulateType]plotter.XYs)
+	hitRatePointsMap := make(map[simulator.SimulateType]plotter.XYs)
 
 	for i, results := range resultsSlice {
-		// label resetting
-		labelX[i] += strconv.FormatFloat(results.Results[simulator.Legacy].BaseThreshold, 'f', 2, 64)
-		for _, simType := range []simulator.SimulationType{
+		for _, simType := range []simulator.SimulateType{
 			simulator.IPSummarized,
 			simulator.Legacy,
 		} {
-			simResult, ok := results.Results[simType]
+			simResult, ok := results.Of[simType]
 			if !ok {
 				continue
 			}
@@ -80,15 +83,15 @@ func SimulationResultsGraph(resultsSlice []simulator.SimulationResults, param Si
 		}
 	}
 	for simType := range detecPointsMap {
-		dLine, _ := plotter.NewLine(detecPointsMap[simType])
-		mLine, _ := plotter.NewLine(misDetecPointsMap[simType])
+		// dLine, _ := plotter.NewLine(detecPointsMap[simType])
+		// mLine, _ := plotter.NewLine(misDetecPointsMap[simType])
 		pLine, _ := plotter.NewLine(perfPointsMap[simType])
-		hLine, _ := plotter.NewLine(hitRatePointsMap[simType])
-		dLine.LineStyle.Color = plotutil.DefaultColors[0]
-		mLine.LineStyle.Color = plotutil.DefaultColors[1]
-		pLine.LineStyle.Color = plotutil.DefaultColors[2]
-		hLine.LineStyle.Color = plotutil.DefaultColors[3]
-		plot.Add(dLine, mLine, pLine, hLine)
+		// hLine, _ := plotter.NewLine(hitRatePointsMap[simType])
+		// dLine.LineStyle.Color = plotutil.DefaultColors[0]
+		// mLine.LineStyle.Color = plotutil.DefaultColors[1]
+		pLine.LineStyle.Color = plotutil.DefaultColors[simType]
+		// hLine.LineStyle.Color = plotutil.DefaultColors[3]
+		p.Add(pLine)
 
 		// decide simType name string
 		var legendPrefix string
@@ -99,28 +102,40 @@ func SimulationResultsGraph(resultsSlice []simulator.SimulationResults, param Si
 			legendPrefix = "IPSummarized "
 		}
 
-		plot.Legend.Add(legendPrefix+"Detection", dLine)
-		plot.Legend.Add(legendPrefix+"MisDetection", mLine)
-		plot.Legend.Add(legendPrefix+"Performance", pLine)
-		plot.Legend.Add(legendPrefix+"HitRate", hLine)
+		// p.Legend.Add(legendPrefix+"Detection", dLine)
+		// p.Legend.Add(legendPrefix+"MisDetection", mLine)
+		p.Legend.Add(legendPrefix+"Performance", pLine)
+		// p.Legend.Add(legendPrefix+"HitRate", hLine)
 	}
 
 	// Label X
-	plot.NominalX(labelX...)
-
-	plot.X.Label.TextStyle.Font.Size = vg.Points(9)
-	plot.X.Label.Text = "Date"
-	plot.X.Tick.Label.Rotation = math.Pi / 4
+	p.NominalX(labelX...)
+	p.X.Label.TextStyle.Font.Size = vg.Points(9)
+	p.X.Label.Text = "Date"
+	p.X.Tick.Label.YAlign = -0.4
+	p.X.Tick.Label.XAlign = -1.0
+	p.X.Tick.Label.Rotation = math.Pi / 4
 
 	// Label Y
-	plot.Y.Label.TextStyle.Font.Size = vg.Points(9)
-	plot.Y.Label.Text = "DetectionRate(%)"
-	plot.Y.Min = 0.0
-	plot.Y.Max = 1.0
+	p.Y.Label.TextStyle.Font.Size = vg.Points(9)
+	p.Y.Label.Text = "DetectionRate(%)"
+	p.Y.Min = 0.0
+	p.Y.Max = 1.0
+
+	// Grid
+	p.Add(plotter.NewGrid())
 
 	// Save
-	filename := param.Begin.Format("2006-01-02T15:04:05") + "to" + param.End.Format("2006-01-02T15:04:05")
-	if e = plot.Save(15*vg.Centimeter, 10*vg.Centimeter, filename+".png"); e != nil {
+	filename := fmt.Sprintf("%s-%s-%s-%d-%d-%v-%s.png",
+		param.Begin.Format("0102T15:04"),
+		param.End.Format("0102T15:04"),
+		param.Interval.String(),
+		param.SubnetMask,
+		int(param.AnalyzeRatio*100),
+		param.WithRTT,
+		param.FilterName)
+
+	if e = p.Save(15*vg.Centimeter, 10*vg.Centimeter, filename); e != nil {
 		panic(e)
 	}
 }

@@ -1,110 +1,162 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
+	"log"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/plotter"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
 )
 
+type simParam struct {
+}
+
 func main() {
-	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-09-25 00:00:00")
-	end, _ := time.Parse("2006-01-02 15:04:05", "2020-09-26 00:00:00")
-	simulateDuration, _ := time.ParseDuration("12h")
-	interval, _ := time.ParseDuration("2h")
-	analyzeRatio := 0.8
-	subnetMask := 16
+	examineParamsOfSimulationIntervalAndAnalyzeRatio()
+
+}
+
+func examineParamsOfSimulationIntervalAndAnalyzeRatio() [][][]simulator.Results {
+	// setup simulation params
+	server := db.Uehara
+	sampleCount := 10
+	intervals := func() []time.Duration {
+		ret := []time.Duration{}
+		for h := 1; h <= 48*2; h++ {
+			ret = append(ret, time.Duration(h)*time.Hour/2)
+		}
+		return ret
+	}()
+
+	ratios := func() []float64 {
+		ret := []float64{}
+		for i := 0; i < 99; i++ {
+			ret = append(ret, float64(i)/100.0)
+		}
+		return ret
+	}()
+
+	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-11-04 00:00:00")
 	withRTT := true
+	subnetMask := 16
 
-	topIPsFilter := func(a *authlog.AuthInfo) bool {
-		subnet := a.IP.SubnetMask(16).String()
-		topIPs := []string{
-			"49.88.0.0",
-			"112.85.0.0",
-			"122.85.0.0",
-			"61.117.0.0",
-		}
-		for _, ip := range topIPs {
-			if subnet == ip {
-				return false
+	// setup Simulator
+	sim := simulator.New(server)
+	sim.SubnetMask(subnetMask)
+	sim.WithRTT(withRTT)
+	sim.SimulateType(simulator.Legacy | simulator.IPSummarized)
+
+	examineResults := [][][]simulator.Results{}
+
+	// do prefetching
+	sim.SimulateRange(begin, begin.Add(48*time.Hour*time.Duration(sampleCount)))
+	sim.Prefetch()
+
+	log.Println("examine params begin")
+	for _, ratio := range ratios {
+		sim.AnalyzeRatio(ratio)
+		fmt.Printf("ratio: %v\n", ratio)
+		byIntervalExamineResults := [][]simulator.Results{}
+		for _, interval := range intervals {
+			fmt.Printf("  interval: %v", interval)
+			byIntervalResult := []simulator.Results{}
+			slideAmount := time.Duration(float64(interval) * ratio)
+			for b := begin; b.Before(begin.Add(slideAmount * time.Duration(sampleCount))); b = b.Add(slideAmount) {
+				fmt.Printf(".")
+				end := b.Add(interval)
+				sim.SimulateRange(b, end)
+				results := sim.Simulate()
+				byIntervalResult = append(byIntervalResult, results)
 			}
+			fmt.Println(" done.")
+			byIntervalExamineResults = append(byIntervalExamineResults, byIntervalResult)
 		}
-		return true
+		examineResults = append(examineResults, byIntervalExamineResults)
 	}
 
-	// noFilter := func(a *authlog.AuthInfo) bool {
-	// 	return true
-	// }
+	toCsv(examineResults, ratios, intervals, sampleCount)
 
-	// DO simulations
-	resultsSlice := []simulator.SimulationResults{}
-	for b := begin; b.Before(end); b = b.Add(interval) {
-		// simulation duration
-		begin := b
-		end := begin.Add(simulateDuration)
-		simulator, e := simulator.NewSimulator(begin, end, analyzeRatio, simulator.Legacy|simulator.IPSummarized, withRTT)
-		if e != nil {
-			panic(e.Error())
-		}
-		simulator.SetSubnetMask(subnetMask)
-		results := simulator.Test(topIPsFilter)
-		resultsSlice = append(resultsSlice, results)
+	return examineResults
+}
+
+func toCsv(examineResults3d [][][]simulator.Results, ratios []float64, intervals []time.Duration, sampleCount int) {
+	type Values struct {
+		Performance float64
+		Detec       float64
+		MisDetec    float64
+		HitRate     float64
 	}
 
-	// plotting
-	plotter.SimulationResultsGraph(resultsSlice, plotter.SimulationResultParams{
-		Begin:            begin,
-		End:              end,
-		Interval:         interval,
-		SimulateDuration: simulateDuration,
-		AnalyzeRatio:     analyzeRatio,
-		SubnetMask:       subnetMask,
-		WithRTT:          withRTT,
-		FilterName:       "Top4IPFilter",
-	})
+	calcMean := func(vs []Values) Values {
+		sum := Values{
+			Performance: 0.0,
+			Detec:       0.0,
+			MisDetec:    0.0,
+			HitRate:     0.0,
+		}
+		for _, v := range vs {
+			sum.Performance += v.Performance
+			sum.Detec += v.Detec
+			sum.MisDetec += v.MisDetec
+			sum.HitRate += v.HitRate
+		}
+		l := float64(len(vs) + 1)
+		return Values{
+			Performance: sum.Performance / l,
+			Detec:       sum.Detec / l,
+			MisDetec:    sum.MisDetec / l,
+			HitRate:     sum.HitRate / l,
+		}
+	}
+
+	legacyCsv := ""
+	newCsv := ""
+
+	for ri, perRatio := range examineResults3d {
+		fmt.Printf("Ratio: %.1f\n", ratios[ri])
+		for ii, perInterval := range perRatio {
+			fmt.Printf("  Interval: %v\n", intervals[ii])
+			legacyValues := []Values{}
+			ipSummaruzedValues := []Values{}
+			for _, perSamples := range perInterval {
+				legacy := perSamples.Of[simulator.Legacy]
+				ipSummarized := perSamples.Of[simulator.IPSummarized]
+				legacyValues = append(legacyValues, Values{
+					Performance: legacy.Performance,
+					Detec:       legacy.DetectionRate,
+					MisDetec:    legacy.MisDetectionRate,
+					HitRate:     0.0,
+				})
+				ipSummaruzedValues = append(ipSummaruzedValues, Values{
+					Performance: ipSummarized.Performance,
+					Detec:       ipSummarized.DetectionRate,
+					MisDetec:    ipSummarized.MisDetectionRate,
+					HitRate:     ipSummarized.HitRate,
+				})
+			}
+			legacyMean := calcMean(legacyValues)
+			ipSummarizedMean := calcMean(ipSummaruzedValues)
+
+			// X-axis: AnalyzeRatio
+			// Y-axis: Interval
+			// Z-axis: Performance
+			legacyCsv += fmt.Sprintf("%v\t%v\t%v\n", ratios[ri], ii, legacyMean.Performance)
+			newCsv += fmt.Sprintf("%v\t%v\t%v\n", ratios[ri], ii, ipSummarizedMean.Performance)
+		}
+		legacyCsv += "\n"
+		newCsv += "\n"
+	}
+	fmt.Print(legacyCsv)
+	fmt.Print(newCsv)
+
+	ioutil.WriteFile("new.tsv", []byte(newCsv), 0666)
+	ioutil.WriteFile("legacy.tsv", []byte(legacyCsv), 0666)
 }
 
 /*
 
-func plottingCorrelation(server db.SSHServer) {
-	begin, _ := time.Parse(DTF, "2020-09-01 00:00:00")
-	end, _ := time.Parse(DTF, "2020-10-15 00:00:00")
-
-	db := db.NewDB(server)
-
-	attacks := db.FetchBetween(begin, end)
-	attacksW := attacks.Where(func(ad *authlog.AuthInfo) bool {
-		subnet := ad.IP.SubnetMask(16).String()
-		return subnet != "222.186.0.0" && subnet != "218.92.0.0" && subnet != "193.228.0.0" && subnet != "112.85.0.0" && subnet != "111.229.0.0" && subnet != "61.177.0.0" && subnet != "49.88.0.0"
-	})
-	fmt.Printf("%v", len(attacksW))
-	plotCorregram(attacksW, net.NewDefaultIP(), 1*time.Hour)
-
-	byIPSummary := summarizer.ByIP(attacks, 16)
-	for _, summary := range byIPSummary {
-		if len(summary.Auths) > 5000 {
-			plotCorregram(summary.Auths, summary.IP, 1*time.Hour)
-		}
-	}
-}
-
-// IPアドレス毎の過去指定日間における、平均のグラフを書く
-func plottingMyselfMap(server db.SSHServer) {
-	begin, _ := time.Parse(DTF, "2020-10-01 00:00:00")
-	end, _ := time.Parse(DTF, "2020-10-04 00:00:00")
-	interval := 7 * 24 * time.Hour
-
-	bitris := db.NewDB(server)
-
-	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
-		attacks := bitris.FetchBetween(seeker, seeker.Add(interval))
-		byIPSummary := summarizer.ByIP(attacks, 16)
-		for _, summary := range byIPSummary {
-			plotMyselfMapByTime(summary.Auths, summary.IP, seeker.String(), time.Hour)
-		}
-	}
-}
 
 // 攻撃元の座標別にRTTのの平均値を取ったMapを返す
 func averageByCountry(attacks authlog.AuthInfoSlice) map[geo.Point]float64 {

@@ -1,25 +1,23 @@
 package simulator
 
 import (
-	"fmt"
-
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/summarizer"
 )
 
-func (s Simulator) calcIPSummarizedPerformance(aAttacks, tAttacks, regulars authlog.AuthInfoSlice) SimulationResult {
+func (s Simulator) calcIPSummarizedPerformance(analyzeData, testData, regulars authlog.AuthInfoSlice) Result {
 	// calc base threshold
-	baseCalculator := analyzer.NewThresholdCalculator(aAttacks, regulars, s.WithRTT)
+	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regulars, s.withRTT)
 	baseThreshold := baseCalculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
 	/* construct ip-threshold map */
 	ipThresholdTable := make(map[net.IP]analyzer.Detections)
-	for _, summary := range summarizer.ByIP(aAttacks, s.SubnetMask) {
-		calculator := analyzer.NewThresholdCalculator(summary.Auths, regulars, s.WithRTT)
+	for _, summary := range summarizer.ByIP(analyzeData, s.subnetMask) {
+		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regulars, s.withRTT)
 		threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
-		subnet := summary.IP.SubnetMask(s.SubnetMask)
+		subnet := summary.IP.SubnetMask(s.subnetMask)
 		ipThresholdTable[subnet] = threshold
 	}
 
@@ -27,8 +25,8 @@ func (s Simulator) calcIPSummarizedPerformance(aAttacks, tAttacks, regulars auth
 	// detection rate
 	detectedCount := 0
 	useDefaultCount := 0
-	for _, attack := range tAttacks {
-		subnet := attack.IP.SubnetMask(s.SubnetMask)
+	for _, attack := range testData {
+		subnet := attack.IP.SubnetMask(s.subnetMask)
 		threshold, ok := ipThresholdTable[subnet]
 		if !ok { // 見つけられなかったらデフォルトのしきい値を使用
 			threshold = baseThreshold
@@ -38,24 +36,19 @@ func (s Simulator) calcIPSummarizedPerformance(aAttacks, tAttacks, regulars auth
 			detectedCount++
 		}
 	}
-	detectionRate := float64(detectedCount) / float64(len(tAttacks))
-	hitRate := 1.0 - float64(useDefaultCount)/float64(len(tAttacks))
+	detectionRate := float64(detectedCount) / float64(len(testData))
+	hitRate := 1.0 - float64(useDefaultCount)/float64(len(testData))
 
 	// misdetection rate
 	misDetectedCount := 0
-	for _, regular := range regulars {
+	for _, regular := range s.regulars {
 		if s.selectAuthtime(regular) < baseThreshold.Authtime {
 			misDetectedCount++
 		}
 	}
-	misDetectionRate := float64(misDetectedCount) / float64(len(regulars))
+	misDetectionRate := float64(misDetectedCount) / float64(len(s.regulars))
 
-	fmt.Printf("      > DetecRate: %.3f\n", detectionRate)
-	fmt.Printf("      > MisDetecRate: %.3f\n", misDetectionRate)
-	fmt.Printf("      > Performance: %.3f\n", detectionRate-misDetectionRate)
-	fmt.Printf("      > HitRate: %.3f\n", hitRate)
-
-	return SimulationResult{
+	return Result{
 		BaseThreshold:    baseThreshold.Authtime,
 		HitRate:          hitRate,
 		DetectionRate:    detectionRate,
