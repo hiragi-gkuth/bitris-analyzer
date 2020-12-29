@@ -2,8 +2,8 @@
 package summarizer
 
 import (
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
 )
 
 // ByIPSummary は，IPアドレスごとにまとめられた認証情報を示す

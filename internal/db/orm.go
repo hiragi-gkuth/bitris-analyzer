@@ -6,7 +6,7 @@ import (
 
 	"github.com/ip2location/ip2location-go"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 )
 
 // querying execute sql from raw string

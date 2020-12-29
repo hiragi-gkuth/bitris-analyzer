@@ -1,6 +1,6 @@
 package simulator
 
-import "github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
+import "github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 
 func (s Simulator) selectAuthtime(auth *authlog.AuthInfo) float64 {
 	if s.withRTT {

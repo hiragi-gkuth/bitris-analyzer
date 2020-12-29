@@ -4,7 +4,7 @@ package analyzer
 import (
 	"sort"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 )
 
 // Detections は，しきい値に関連するデータを格納する構造体

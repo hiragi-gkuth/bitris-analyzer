@@ -8,7 +8,7 @@ import (
 
 	"github.com/ip2location/ip2location-go"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
 )
 
 // AuthRawInfo express raw tables

@@ -2,7 +2,7 @@
 package plotter
 
 import (
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"

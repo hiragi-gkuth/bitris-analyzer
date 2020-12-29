@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
 
 type simParam struct {

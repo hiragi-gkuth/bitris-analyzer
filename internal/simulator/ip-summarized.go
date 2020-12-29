@@ -1,10 +1,10 @@
 package simulator
 
 import (
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/summarizer"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/summarizer"
 )
 
 func (s Simulator) calcIPSummarizedPerformance(analyzeData, testData, regulars authlog.AuthInfoSlice) Result {

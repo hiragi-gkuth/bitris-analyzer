@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
 )
 
 // FetchSuccessSamples returns all success with password authentication

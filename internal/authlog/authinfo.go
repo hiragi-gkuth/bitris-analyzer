@@ -1,3 +1,4 @@
+// Package authlog provide structure and funcs for authlog
 package authlog
 
 import (
@@ -5,7 +6,7 @@ import (
 
 	"github.com/ip2location/ip2location-go"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/net"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
 )
 
 // AuthInfo is structure of manipulate

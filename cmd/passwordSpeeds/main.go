@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 
 	"github.com/fluent/fluent-logger-golang/fluent"
 )

@@ -4,8 +4,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/db"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 )
 
 // DTF is DateTimeFormat

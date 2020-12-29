@@ -1,8 +1,8 @@
 package simulator
 
 import (
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyzer"
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/authlog"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 )
 
 func (s Simulator) calcLegacyMethodPerformance(analyzeData, testData, regulars authlog.AuthInfoSlice) Result {

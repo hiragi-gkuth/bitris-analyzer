@@ -5,7 +5,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/pkg/simulator"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
