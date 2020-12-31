@@ -2,7 +2,6 @@
 package analyze
 
 import (
-	"fmt"
 	"net"
 	"time"
 
@@ -15,6 +14,7 @@ type Analyze struct {
 	ServerID      string
 	LogServerHost string
 	LogServerPort int
+	SubnetMask    net.IPMask
 }
 
 // Analyzer interface implements all of analyze features
@@ -31,39 +31,34 @@ func New(serverID string, logServerHost string, logServerPort int) Analyzer {
 }
 
 // Analyze do analysis
-func (a *Analyze) Analyze() Result {
+func (a *Analyze) Analyze(subnetMask int, entireDuration time.Duration, divisions int) Threshold {
 	withRTT := false
 	mask := 16
 	authLogs, regularLogs := a.fetchAuthLogs(24 * time.Hour)
 
-	result := Result{
-		OnIP:   make(OnIP),
-		OnTime: make(OnTime),
-	}
+	thresholds := NewThreshold(subnetMask, entireDuration, divisions)
 
-	// calc per IP map
+	// calc per IP threshold
 	for _, summ := range summarizer.ByIP(authLogs, mask) {
 		calculator := analyzer.NewThresholdCalculator(summ.Auths, regularLogs, withRTT)
 		threshold := calculator.CalcBestThreshold(0.1, 1.5, 0.01)
-		subnet := summ.IP.SubnetMask(mask)
-		_, ipnet, _ := net.ParseCIDR(fmt.Sprintf("%v/%v", subnet, mask))
-		result.OnIP[ipnet] = threshold.Authtime
+
+		thresholds.OnIP.Set(summ.IP.String(), threshold.Authtime)
 	}
-	// calc per Time map
+	// calc per Time threshold
 	for _, summ := range summarizer.ByTime(authLogs, 24*time.Hour, 24) {
 		calculator := analyzer.NewThresholdCalculator(summ.Auths, regularLogs, withRTT)
 		threshold := calculator.CalcBestThreshold(0.1, 1.5, 0.01)
-		timeRange := TimeRange{
-			Entire: 24 * time.Hour,
-			Begin:  summ.Slot.Begin(),
-			End:    summ.Slot.End(),
-		}
-		result.OnTime[timeRange] = threshold.Authtime
+
+		thresholds.OnTime.Set(time.Now(), threshold.Authtime)
+
 	}
+	// calc per IP Time threshold
+
 	// calc base threshold
 	calculator := analyzer.NewThresholdCalculator(authLogs, regularLogs, withRTT)
 	threshold := calculator.CalcBestThreshold(0.1, 1.5, 0.01)
-	result.BaseThreshold = threshold.Authtime
+	thresholds.BaseThreshold = threshold.Authtime
 
-	return result
+	return *thresholds
 }
