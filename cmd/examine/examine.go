@@ -6,12 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
-
-type simParam struct {
-}
 
 func main() {
 	examineParamsOfSimulationIntervalAndAnalyzeRatio()
@@ -20,7 +16,7 @@ func main() {
 
 func examineParamsOfSimulationIntervalAndAnalyzeRatio() [][][]simulator.Results {
 	// setup simulation params
-	server := db.Uehara
+	serverID := "uehara"
 	sampleCount := 10
 	intervals := func() []time.Duration {
 		ret := []time.Duration{}
@@ -43,7 +39,7 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio() [][][]simulator.Results 
 	subnetMask := 16
 
 	// setup Simulator
-	sim := simulator.New(server)
+	sim := simulator.New(serverID)
 	sim.SubnetMask(subnetMask)
 	sim.WithRTT(withRTT)
 	sim.SimulateType(simulator.Legacy | simulator.IPSummarized)
@@ -154,37 +150,3 @@ func toCsv(examineResults3d [][][]simulator.Results, ratios []float64, intervals
 	ioutil.WriteFile("new.tsv", []byte(newCsv), 0666)
 	ioutil.WriteFile("legacy.tsv", []byte(legacyCsv), 0666)
 }
-
-/*
-
-
-// 攻撃元の座標別にRTTのの平均値を取ったMapを返す
-func averageByCountry(attacks authlog.AuthInfoSlice) map[geo.Point]float64 {
-	geoRTTMap := make(map[geo.Point]float64)
-	geoCounterMap := make(map[geo.Point]int)
-
-	for _, attack := range attacks {
-		// 外れ値を除外
-		if attack.RTT > 2.0 {
-			continue
-		}
-		point := *geo.NewPoint(float64(attack.GeoInfo.Latitude), float64(attack.GeoInfo.Longitude))
-		if _, ok := geoRTTMap[point]; !ok {
-			geoRTTMap[point] = 0.0
-			geoCounterMap[point] = 0
-		}
-		geoRTTMap[point] += attack.RTT
-		geoCounterMap[point]++
-	}
-
-	result := make(map[geo.Point]float64)
-	for k, rttSum := range geoRTTMap {
-		// サンプル数が少ないものを除外
-		if geoCounterMap[k] < 30 {
-			continue
-		}
-		result[k] = rttSum / float64(geoCounterMap[k])
-	}
-	return result
-}
-*/
