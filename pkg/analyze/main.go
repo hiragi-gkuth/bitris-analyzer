@@ -19,6 +19,7 @@ type Analyze struct {
 
 // Analyzer interface implements all of analyze features
 type Analyzer interface {
+	Analyze(subnetMask int, entireDuration time.Duration, divisions int) Threshold
 }
 
 // New returns new Analyzer
