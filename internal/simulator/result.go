@@ -13,8 +13,10 @@ type Result struct {
 
 // Results は，結果のまとめ
 type Results struct {
-	Begin         time.Time
-	End           time.Time
-	FilteredRatio float64
-	Of            map[SimulateType]Result
+	Begin           time.Time
+	End             time.Time
+	AnalysisPeriod  time.Duration
+	OperationPeriod time.Duration
+	FilteredRatio   float64
+	Of              map[SimulateType]Result
 }

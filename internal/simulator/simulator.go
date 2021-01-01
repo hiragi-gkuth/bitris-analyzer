@@ -33,64 +33,62 @@ const (
 // ISimulator は，Simulator が提供すべきメソッドを定義する
 type ISimulator interface {
 	Simulate() Results
-	SimulateRange(time.Time, time.Time)
-	AnalyzeRatio(float64)
-	SubnetMask(int)
-	SimulateType(SimulateType)
-	WithRTT(bool)
-	AttacksFilter(func(a *authlog.AuthInfo) bool)
 	Prefetch()
+
+	SetTerm(begin time.Time, analysisPeriod, operationPeriod time.Duration)
+	SetSubnetMask(int)
+	SetSimulateType(SimulateType)
+	SetWithRTT(bool)
+	SetAttacksFilter(func(a *authlog.AuthInfo) bool)
 }
 
 // Simulator は，Simulator package が提供する機能をまとめる構造体
 type Simulator struct {
-	serverID      string
-	simulateRange []time.Time
-	fetchRange    []time.Time
-	regulars      authlog.AuthInfoSlice
-	attacks       authlog.AuthInfoSlice
-	fetchAttacks  authlog.AuthInfoSlice
-	attacksFilter func(a *authlog.AuthInfo) bool
-	analyzeRatio  float64
-	simulateType  SimulateType
-	withRTT       bool
-	subnetMask    int
+	serverID       string
+	analysisPeriod time.Duration
+	oprationPeriod time.Duration
+	simulateRange  []time.Time
+	fetchRange     []time.Time
+	regulars       authlog.AuthInfoSlice
+	attacks        authlog.AuthInfoSlice
+	fetchAttacks   authlog.AuthInfoSlice
+	attacksFilter  func(a *authlog.AuthInfo) bool
+	simulateType   SimulateType
+	withRTT        bool
+	subnetMask     int
 }
 
 // New は，新たなシミュレータ構造体を返す
-func New(simulationServerID string) ISimulator {
+func New(serverID string) ISimulator {
 	return &Simulator{
-		serverID: simulationServerID,
+		serverID: serverID,
 	}
 }
 
-// SimulateRange は，解析期間を設定する
-func (s *Simulator) SimulateRange(begin, end time.Time) {
-	s.simulateRange = []time.Time{begin, end}
+// SetTerm は，シミュレーション全体の解析機関，運用期間を設定する
+func (s *Simulator) SetTerm(begin time.Time, analysisPeriod, operationPeriod time.Duration) {
+	s.analysisPeriod = analysisPeriod
+	s.oprationPeriod = operationPeriod
+	s.simulateRange = []time.Time{begin, begin.Add(analysisPeriod).Add(operationPeriod)}
 }
 
-// AnalyzeRatio は，解析比率を設定する
-func (s *Simulator) AnalyzeRatio(analyzeRatio float64) {
-	s.analyzeRatio = analyzeRatio
-}
-
-// SubnetMask は，サブネットマスクを設定する
-func (s *Simulator) SubnetMask(subnetMask int) {
+// SetSubnetMask は，サブネットマスクを設定する
+func (s *Simulator) SetSubnetMask(subnetMask int) {
 	s.subnetMask = subnetMask
 }
 
-// SimulateType は，シミュレート種別を設定する
-func (s *Simulator) SimulateType(simulateType SimulateType) {
+// SetSimulateType は，シミュレート種別を設定する
+func (s *Simulator) SetSimulateType(simulateType SimulateType) {
 	s.simulateType = simulateType
 }
 
-// WithRTT は，RTTを含んでシミュレートするかを設定する
-func (s *Simulator) WithRTT(withRTT bool) {
+// SetWithRTT は，RTTを含んでシミュレートするかを設定する
+func (s *Simulator) SetWithRTT(withRTT bool) {
 	s.withRTT = withRTT
 }
 
-// AttacksFilter は，攻撃に対するフィルターを設定する
-func (s *Simulator) AttacksFilter(attacksFilter func(a *authlog.AuthInfo) bool) {
+// SetAttacksFilter は，攻撃に対するフィルターを設定する
+func (s *Simulator) SetAttacksFilter(attacksFilter func(a *authlog.AuthInfo) bool) {
 	s.attacksFilter = attacksFilter
 }
 
@@ -104,7 +102,7 @@ func (s *Simulator) Prefetch() {
 	}
 	// 一度もPrefetchされていないか，Prefetchされた範囲以上がシミュレーション期間に設定されているなら，再取得
 	if s.fetchRange == nil || (s.simulateRange[0].Before(s.fetchRange[0]) || s.simulateRange[1].After(s.fetchRange[1])) {
-		log.Println("Simulator Prefetch Attacks")
+		log.Println("Simulator Prefetch Attacks", s.simulateRange)
 		s.fetchAttacks = bitris.FetchBetween(s.simulateRange[0], s.simulateRange[1])
 		s.fetchRange = make([]time.Time, 2)
 		copy(s.fetchRange, s.simulateRange)
@@ -114,29 +112,26 @@ func (s *Simulator) Prefetch() {
 // Simulate は，実際にシミュレーションを実行する
 func (s *Simulator) Simulate() Results {
 	// Simulation parameter checking...
-	if s.analyzeRatio == 0.0 || s.simulateRange == nil || s.simulateType == 0b0000 || s.subnetMask == 0 {
+	if s.simulateRange == nil || s.simulateType == 0b0000 || s.subnetMask == 0 {
 		log.Fatal("parameters is not enough", s)
 	}
 	// fetching
 	s.Prefetch()
 
-	// Prefetchより短い期間なら，切り詰める
-	if s.simulateRange[0].After(s.fetchRange[0]) || s.simulateRange[1].Before(s.fetchRange[1]) {
-		s.attacks = s.fetchAttacks.Where(func(a *authlog.AuthInfo) bool {
-			return a.AuthAt.Equal(s.simulateRange[0]) || a.AuthAt.After(s.simulateRange[0]) && a.AuthAt.Before(s.simulateRange[1])
-		})
-	}
+	analyzeData := s.fetchAttacks.Where(func(a *authlog.AuthInfo) bool {
+		return !a.AuthAt.Before(s.simulateRange[0]) && a.AuthAt.Before(s.simulateRange[0].Add(s.analysisPeriod))
+	})
 
-	// devide analyze and test data
-	pivot := int(float64((len(s.attacks))) * s.analyzeRatio)
-	analyzeData, testData := s.attacks[:pivot], s.attacks[pivot:]
+	operationData := s.fetchAttacks.Where(func(a *authlog.AuthInfo) bool {
+		return !a.AuthAt.Before(s.simulateRange[0].Add(s.analysisPeriod)) && a.AuthAt.Before(s.simulateRange[1])
+	})
 
 	// save original attacks len for calculating filter ratio
 	aOriginalLen := len(analyzeData)
 
 	// filtering
 	if s.attacksFilter != nil {
-		analyzeData, testData = analyzeData.Where(s.attacksFilter), testData.Where(s.attacksFilter)
+		analyzeData, operationData = analyzeData.Where(s.attacksFilter), operationData.Where(s.attacksFilter)
 	}
 	filterRatio := 1.0 - float64(len(analyzeData))/float64(aOriginalLen)
 	// inform Simulator status
@@ -150,21 +145,23 @@ func (s *Simulator) Simulate() Results {
 	if s.simulateType&Legacy != 0 {
 		// fmt.Printf("    > LegacyPerformanceTestBegin\n")
 		// now := time.Now()
-		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, testData, s.regulars)
+		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, operationData, s.regulars)
 		// fmt.Printf("    > done! %v\n", time.Since(now))
 	}
 	if s.simulateType&IPSummarized != 0 {
 		// fmt.Printf("    > IPSummarizedPerformanceTestBegin\n")
 		// now := time.Now()
-		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, testData, s.regulars)
+		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regulars)
 		// fmt.Printf("    > done! %v\n", time.Since(now))
 	}
 
 	// fmt.Printf("> End all simulations.\n")
 	return Results{
-		Begin:         s.simulateRange[0],
-		End:           s.simulateRange[1],
-		FilteredRatio: filterRatio,
-		Of:            results,
+		Begin:           s.simulateRange[0],
+		End:             s.simulateRange[1],
+		AnalysisPeriod:  s.analysisPeriod,
+		OperationPeriod: s.oprationPeriod,
+		FilteredRatio:   filterRatio,
+		Of:              results,
 	}
 }

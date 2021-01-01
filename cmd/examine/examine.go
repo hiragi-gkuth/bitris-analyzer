@@ -4,35 +4,38 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
 
 func main() {
-	examineParamsOfSimulationIntervalAndAnalyzeRatio()
+	serverID := fmt.Sprint(os.Args[1])
+	sampleCount, _ := strconv.Atoi(os.Args[2])
+	maxDuration, _ := strconv.Atoi(os.Args[3])
+	timeResolution, _ := strconv.Atoi(os.Args[4])
+
+	examineParamsOfSimulationIntervalAndAnalyzeRatio(
+		serverID,
+		sampleCount,
+		time.Duration(maxDuration)*time.Hour,
+		time.Duration(timeResolution)*time.Minute)
 
 }
 
-func examineParamsOfSimulationIntervalAndAnalyzeRatio() [][][]simulator.Results {
-	// setup simulation params
-	serverID := "uehara"
-	sampleCount := 10
-	intervals := func() []time.Duration {
+func examineParamsOfSimulationIntervalAndAnalyzeRatio(serverID string, sampleCount int, maxDuration, timeResolution time.Duration) [][][]simulator.Results {
+	operationPeriods := func() []time.Duration {
 		ret := []time.Duration{}
-		for h := 1; h <= 48*2; h++ {
-			ret = append(ret, time.Duration(h)*time.Hour/2)
+		for d := timeResolution; d <= maxDuration; d += timeResolution {
+			ret = append(ret, d)
 		}
 		return ret
 	}()
 
-	ratios := func() []float64 {
-		ret := []float64{}
-		for i := 0; i < 99; i++ {
-			ret = append(ret, float64(i)/100.0)
-		}
-		return ret
-	}()
+	analysisPeriods := make([]time.Duration, len(operationPeriods))
+	copy(analysisPeriods, operationPeriods)
 
 	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-11-04 00:00:00")
 	withRTT := true
@@ -40,44 +43,43 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio() [][][]simulator.Results 
 
 	// setup Simulator
 	sim := simulator.New(serverID)
-	sim.SubnetMask(subnetMask)
-	sim.WithRTT(withRTT)
-	sim.SimulateType(simulator.Legacy | simulator.IPSummarized)
+	sim.SetSubnetMask(subnetMask)
+	sim.SetWithRTT(withRTT)
+	sim.SetSimulateType(simulator.Legacy | simulator.IPSummarized)
 
 	examineResults := [][][]simulator.Results{}
 
 	// do prefetching
-	sim.SimulateRange(begin, begin.Add(48*time.Hour*time.Duration(sampleCount)))
+	// 調査範囲全てのアクセスを取得するため， begin から begin + (maxDuration * 2) * sampleCount ぶん取得する
+	sim.SetTerm(begin, 0, maxDuration*2*time.Duration(sampleCount))
 	sim.Prefetch()
 
 	log.Println("examine params begin")
-	for _, ratio := range ratios {
-		sim.AnalyzeRatio(ratio)
-		fmt.Printf("ratio: %v\n", ratio)
+	for _, analysisPeriod := range analysisPeriods { // when analysis period is...
+		fmt.Printf("Analysis Period: %v\n", analysisPeriod)
 		byIntervalExamineResults := [][]simulator.Results{}
-		for _, interval := range intervals {
-			fmt.Printf("  interval: %v", interval)
+		for _, operationPeriod := range operationPeriods { // when operation period is...
+			fmt.Printf("  Operation Period: %v", operationPeriod)
 			byIntervalResult := []simulator.Results{}
-			slideAmount := time.Duration(float64(interval) * ratio)
-			for b := begin; b.Before(begin.Add(slideAmount * time.Duration(sampleCount))); b = b.Add(slideAmount) {
-				fmt.Printf(".")
-				end := b.Add(interval)
-				sim.SimulateRange(b, end)
+			for sc := 0; sc < sampleCount; sc++ { // sampling some
+				// simulation offset slides "operationPeriod" per sample
+				b := begin.Add(time.Duration(sc) * operationPeriod)
+				sim.SetTerm(b, analysisPeriod, operationPeriod)
 				results := sim.Simulate()
 				byIntervalResult = append(byIntervalResult, results)
+				fmt.Print(".")
 			}
 			fmt.Println(" done.")
 			byIntervalExamineResults = append(byIntervalExamineResults, byIntervalResult)
 		}
 		examineResults = append(examineResults, byIntervalExamineResults)
 	}
-
-	toCsv(examineResults, ratios, intervals, sampleCount)
+	toCsv(examineResults, sampleCount, analysisPeriods, operationPeriods)
 
 	return examineResults
 }
 
-func toCsv(examineResults3d [][][]simulator.Results, ratios []float64, intervals []time.Duration, sampleCount int) {
+func toCsv(examineResults3d [][][]simulator.Results, sampleCount int, analysisPeriods, operationPeriods []time.Duration) {
 	type Values struct {
 		Performance float64
 		Detec       float64
@@ -110,13 +112,11 @@ func toCsv(examineResults3d [][][]simulator.Results, ratios []float64, intervals
 	legacyCsv := ""
 	newCsv := ""
 
-	for ri, perRatio := range examineResults3d {
-		fmt.Printf("Ratio: %.1f\n", ratios[ri])
-		for ii, perInterval := range perRatio {
-			fmt.Printf("  Interval: %v\n", intervals[ii])
+	for ai, perAnalyzePeriod := range examineResults3d {
+		for oi, perOperationPeriod := range perAnalyzePeriod {
 			legacyValues := []Values{}
 			ipSummaruzedValues := []Values{}
-			for _, perSamples := range perInterval {
+			for _, perSamples := range perOperationPeriod {
 				legacy := perSamples.Of[simulator.Legacy]
 				ipSummarized := perSamples.Of[simulator.IPSummarized]
 				legacyValues = append(legacyValues, Values{
@@ -135,18 +135,23 @@ func toCsv(examineResults3d [][][]simulator.Results, ratios []float64, intervals
 			legacyMean := calcMean(legacyValues)
 			ipSummarizedMean := calcMean(ipSummaruzedValues)
 
-			// X-axis: AnalyzeRatio
-			// Y-axis: Interval
-			// Z-axis: Performance
-			legacyCsv += fmt.Sprintf("%v\t%v\t%v\n", ratios[ri], ii, legacyMean.Performance)
-			newCsv += fmt.Sprintf("%v\t%v\t%v\n", ratios[ri], ii, ipSummarizedMean.Performance)
+			// X-axis: Analysis Period  (minute)
+			// Y-axis: Operation Period (minute)
+			// Z-axis: Performance      (percentage)
+			legacyCsv += fmt.Sprintf("%v\t%v\t%v\n",
+				analysisPeriods[ai].Minutes(),
+				operationPeriods[oi].Minutes(),
+				legacyMean.Performance)
+			newCsv += fmt.Sprintf("%v\t%v\t%v\n",
+				analysisPeriods[ai].Minutes(),
+				operationPeriods[oi].Minutes(),
+				ipSummarizedMean.Performance)
+
 		}
 		legacyCsv += "\n"
 		newCsv += "\n"
 	}
-	fmt.Print(legacyCsv)
-	fmt.Print(newCsv)
-
-	ioutil.WriteFile("new.tsv", []byte(newCsv), 0666)
-	ioutil.WriteFile("legacy.tsv", []byte(legacyCsv), 0666)
+	timestamp := time.Now().Format("20060102150405")
+	ioutil.WriteFile(fmt.Sprintf("ipsumm-%d-%v.tsv", sampleCount, timestamp), []byte(newCsv), 0666)
+	ioutil.WriteFile(fmt.Sprintf("legacy-%d-%v.tsv", sampleCount, timestamp), []byte(legacyCsv), 0666)
 }
