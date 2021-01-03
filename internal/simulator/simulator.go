@@ -2,6 +2,7 @@ package simulator
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
@@ -19,15 +20,15 @@ type SimulateType uint8
 
 const (
 	// Legacy は，先行研究による手法の検知率を算出する
-	Legacy SimulateType = 0b0001
+	Legacy SimulateType = 0b1
 	// IPSummarized は，IPアドレスごとに要約された攻撃ごとのしきい値による検知率を算出
-	IPSummarized SimulateType = 0b0010
+	IPSummarized SimulateType = 0b10
 	// TimeSummarized は，時間帯ごとに要約された攻撃から算出するしきい値による検知率を算出
-	TimeSummarized SimulateType = 0b0011
+	TimeSummarized SimulateType = 0b100
 	// IPTimeSummarized は，IP,時間帯ごとの双方をあわせたしきい値の決定による検知率を算出
-	IPTimeSummarized SimulateType = 0b0100
+	IPTimeSummarized SimulateType = 0b1000
 	// InterSessionSummarized は，認証セッションごとの何回目であるかを元にしきい値を
-	InterSessionSummarized SimulateType = 0b0101
+	InterSessionSummarized SimulateType = 0b10000
 )
 
 // ISimulator は，Simulator が提供すべきメソッドを定義する
@@ -40,6 +41,7 @@ type ISimulator interface {
 	SetSimulateType(SimulateType)
 	SetWithRTT(bool)
 	SetAttacksFilter(func(a *authlog.AuthInfo) bool)
+	SetVerbose(bool)
 }
 
 // Simulator は，Simulator package が提供する機能をまとめる構造体
@@ -56,6 +58,8 @@ type Simulator struct {
 	simulateType   SimulateType
 	withRTT        bool
 	subnetMask     int
+	verbose        bool
+	logger         *log.Logger
 }
 
 // New は，新たなシミュレータ構造体を返す
@@ -90,6 +94,11 @@ func (s *Simulator) SetWithRTT(withRTT bool) {
 // SetAttacksFilter は，攻撃に対するフィルターを設定する
 func (s *Simulator) SetAttacksFilter(attacksFilter func(a *authlog.AuthInfo) bool) {
 	s.attacksFilter = attacksFilter
+}
+
+// SetVerbose は詳細表示を行う
+func (s *Simulator) SetVerbose(v bool) {
+	s.verbose = v
 }
 
 // Prefetch は，シミュレーション開始前にデータを取得しておく
@@ -134,19 +143,18 @@ func (s *Simulator) Simulate() Results {
 		analyzeData, operationData = analyzeData.Where(s.attacksFilter), operationData.Where(s.attacksFilter)
 	}
 	filterRatio := 1.0 - float64(len(analyzeData))/float64(aOriginalLen)
-	// inform Simulator status
-	// fmt.Printf("> Bitris System Simulator \n")
-	// fmt.Printf("  > Simulate on %v\n", s.simulateRange)
-	// fmt.Printf("  > Analyze Ratio %.1f%%\n", s.analyzeRatio*100)
-	// fmt.Printf("  > Filtered %.1f%% of data\n", filterRatio*100)
-	// fmt.Printf("  > AnalyzeDataLen: %d, TestDataLen: %d, RegularDateLen: %d\n", len(analyzeData), len(testData), len(s.regulars))
+
+	if s.verbose {
+		s.logger = log.New(os.Stderr, "[simulator]", 0)
+		s.logger.Print("Bitris Simulator")
+		s.logger.Printf("%v - %v", s.simulateRange[0], s.simulateRange[1])
+		s.logger.Printf("analysis: %v, operation: %v", s.analysisPeriod, s.oprationPeriod)
+		s.logger.Printf("analysis count: %v, operation count: %v", len(analyzeData), len(operationData))
+	}
 
 	results := make(map[SimulateType]Result)
 	if s.simulateType&Legacy != 0 {
-		// fmt.Printf("    > LegacyPerformanceTestBegin\n")
-		// now := time.Now()
 		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, operationData, s.regulars)
-		// fmt.Printf("    > done! %v\n", time.Since(now))
 	}
 	if s.simulateType&IPSummarized != 0 {
 		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regulars)

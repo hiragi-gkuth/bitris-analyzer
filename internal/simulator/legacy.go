@@ -28,6 +28,17 @@ func (s Simulator) calcLegacyMethodPerformance(analyzeData, testData, regulars a
 	}
 	misDetectionRate := float64(misDetectedCount) / float64(len(s.regulars))
 
+	if s.verbose {
+		s.logger.SetPrefix("[simulator:legacy]")
+		s.logger.Printf("base: %.3f, hit: %.3f, detec: %.3f, misDetec: %.3f, perf: %.3f\n",
+			threshold.Authtime,
+			0.0,
+			detectionRate,
+			misDetectionRate,
+			detectionRate-misDetectionRate)
+		s.logger.SetPrefix("[simulator]")
+	}
+
 	return Result{
 		BaseThreshold:    threshold.Authtime,
 		DetectionRate:    detectionRate,

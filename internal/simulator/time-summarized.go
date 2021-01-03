@@ -54,6 +54,17 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 	}
 	misDetectionRate := float64(misDetectedCount) / float64(len(s.regulars))
 
+	if s.verbose {
+		s.logger.SetPrefix("[simulator:timesum]")
+		s.logger.Printf("base: %.3f, hit: %.3f, detec: %.3f, misDetec: %.3f, perf: %.3f\n",
+			baseThreshold.Authtime,
+			hitRate,
+			detectionRate,
+			misDetectionRate,
+			detectionRate-misDetectionRate)
+		s.logger.SetPrefix("[simulator]")
+	}
+
 	return Result{
 		BaseThreshold:    baseThreshold.Authtime,
 		HitRate:          hitRate,
