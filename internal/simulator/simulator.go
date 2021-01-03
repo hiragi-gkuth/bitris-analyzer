@@ -149,10 +149,10 @@ func (s *Simulator) Simulate() Results {
 		// fmt.Printf("    > done! %v\n", time.Since(now))
 	}
 	if s.simulateType&IPSummarized != 0 {
-		// fmt.Printf("    > IPSummarizedPerformanceTestBegin\n")
-		// now := time.Now()
 		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regulars)
-		// fmt.Printf("    > done! %v\n", time.Since(now))
+	}
+	if s.simulateType&TimeSummarized != 0 {
+		results[TimeSummarized] = s.calcTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
 	}
 
 	// fmt.Printf("> End all simulations.\n")

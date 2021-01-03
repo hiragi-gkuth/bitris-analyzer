@@ -2,6 +2,7 @@
 package summarizer
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
@@ -38,4 +39,19 @@ func ByTime(auths authlog.AuthInfoSlice, interval time.Duration, divisions int) 
 		summarySlice = append(summarySlice, &summary)
 	}
 	return summarySlice
+}
+
+// Key returns map key to construct TimeThreshold map
+func (vts ByTimeSummary) Key() string {
+	return fmt.Sprintf("%v", vts.Slot.Begin())
+}
+
+// GetKeyFromAuthAt is
+func GetKeyFromAuthAt(authAt time.Time, interval time.Duration, divisions int) string {
+	for slot := NewTimeSlot(interval, divisions); slot.DuringInterval(); slot = slot.Next() {
+		if slot.IsInSlot(authAt) {
+			return fmt.Sprintf("%v", slot.Begin())
+		}
+	}
+	return ""
 }

@@ -19,13 +19,12 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 	division := 24
 
 	/* construct time-threshold map */
-	timeThresholdTable := make(map[int]analyzer.Detections)
+	timeThresholdTable := make(map[string]analyzer.Detections)
 	for _, summary := range summarizer.ByTime(analyzeData, interval, division) {
 		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regulars, s.withRTT)
 		threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
-		index := int(summary.Slot.Begin().Hours())
-		timeThresholdTable[index] = threshold
+		timeThresholdTable[summary.Key()] = threshold
 	}
 
 	/* check performance */
@@ -33,8 +32,8 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 	detectedCount := 0
 	useDefaultCount := 0
 	for _, attack := range testData {
-		authAtIdx := attack.AuthAt.UTC().Hour()
-		threshold, ok := timeThresholdTable[authAtIdx]
+		key := summarizer.GetKeyFromAuthAt(attack.AuthAt, interval, division)
+		threshold, ok := timeThresholdTable[key]
 		if !ok { // 見つけられなかったらデフォルトのしきい値を使用
 			threshold = baseThreshold
 			useDefaultCount++
