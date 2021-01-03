@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
@@ -21,11 +22,18 @@ func main() {
 		serverID,
 		sampleCount,
 		time.Duration(maxDuration)*time.Hour,
-		time.Duration(timeResolution)*time.Minute)
+		time.Duration(timeResolution)*time.Minute,
+		simulator.IPSummarized|simulator.TimeSummarized|simulator.Legacy,
+	)
 
 }
 
-func examineParamsOfSimulationIntervalAndAnalyzeRatio(serverID string, sampleCount int, maxDuration, timeResolution time.Duration) [][][]simulator.Results {
+func examineParamsOfSimulationIntervalAndAnalyzeRatio(
+	serverID string,
+	sampleCount int,
+	maxDuration, timeResolution time.Duration,
+	simulateType simulator.SimulateType,
+) [][][]simulator.Results {
 	operationPeriods := func() []time.Duration {
 		ret := []time.Duration{}
 		for d := timeResolution; d <= maxDuration; d += timeResolution {
@@ -45,7 +53,7 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio(serverID string, sampleCou
 	sim := simulator.New(serverID)
 	sim.SetSubnetMask(subnetMask)
 	sim.SetWithRTT(withRTT)
-	sim.SetSimulateType(simulator.Legacy | simulator.IPSummarized)
+	sim.SetSimulateType(simulateType)
 
 	examineResults := [][][]simulator.Results{}
 
@@ -61,15 +69,22 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio(serverID string, sampleCou
 		for _, operationPeriod := range operationPeriods { // when operation period is...
 			fmt.Printf("  Operation Period: %v", operationPeriod)
 			byIntervalResult := []simulator.Results{}
+			var wg sync.WaitGroup
+			n := time.Now()
 			for sc := 0; sc < sampleCount; sc++ { // sampling some
+				wg.Add(1)
 				// simulation offset slides "operationPeriod" per sample
-				b := begin.Add(time.Duration(sc) * operationPeriod)
-				sim.SetTerm(b, analysisPeriod, operationPeriod)
-				results := sim.Simulate()
-				byIntervalResult = append(byIntervalResult, results)
-				fmt.Print(".")
+				go func(i int) {
+					defer wg.Done()
+					b := begin.Add(time.Duration(i) * operationPeriod)
+					sim.SetTerm(b, analysisPeriod, operationPeriod)
+					results := sim.Simulate()
+					byIntervalResult = append(byIntervalResult, results)
+					fmt.Print(".")
+				}(sc)
 			}
-			fmt.Println(" done.")
+			wg.Wait()
+			fmt.Println(" done.", time.Since(n))
 			byIntervalExamineResults = append(byIntervalExamineResults, byIntervalResult)
 		}
 		examineResults = append(examineResults, byIntervalExamineResults)
@@ -86,6 +101,10 @@ func toCsv(examineResults3d [][][]simulator.Results, sampleCount int, analysisPe
 		MisDetec    float64
 		HitRate     float64
 	}
+
+	type ValuesMap map[simulator.SimulateType][]Values
+
+	type TsvMap map[simulator.SimulateType]string
 
 	calcMean := func(vs []Values) Values {
 		sum := Values{
@@ -109,49 +128,51 @@ func toCsv(examineResults3d [][][]simulator.Results, sampleCount int, analysisPe
 		}
 	}
 
-	legacyCsv := ""
-	newCsv := ""
+	// tsv content
+	tsvMap := make(TsvMap)
 
 	for ai, perAnalyzePeriod := range examineResults3d {
 		for oi, perOperationPeriod := range perAnalyzePeriod {
-			legacyValues := []Values{}
-			ipSummaruzedValues := []Values{}
+			vMap := make(ValuesMap)
+
+			// sum all samples for calc mean
 			for _, perSamples := range perOperationPeriod {
-				legacy := perSamples.Of[simulator.Legacy]
-				ipSummarized := perSamples.Of[simulator.IPSummarized]
-				legacyValues = append(legacyValues, Values{
-					Performance: legacy.Performance,
-					Detec:       legacy.DetectionRate,
-					MisDetec:    legacy.MisDetectionRate,
-					HitRate:     0.0,
-				})
-				ipSummaruzedValues = append(ipSummaruzedValues, Values{
-					Performance: ipSummarized.Performance,
-					Detec:       ipSummarized.DetectionRate,
-					MisDetec:    ipSummarized.MisDetectionRate,
-					HitRate:     ipSummarized.HitRate,
-				})
+				// per simulate types
+				for simType, result := range perSamples.Of {
+					if _, ok := vMap[simType]; !ok {
+						vMap[simType] = make([]Values, 0)
+					}
+					vMap[simType] = append(vMap[simType], Values{
+						Performance: result.Performance,
+						Detec:       result.DetectionRate,
+						MisDetec:    result.MisDetectionRate,
+						HitRate:     result.HitRate,
+					})
+				}
 			}
-			legacyMean := calcMean(legacyValues)
-			ipSummarizedMean := calcMean(ipSummaruzedValues)
 
-			// X-axis: Analysis Period  (minute)
-			// Y-axis: Operation Period (minute)
-			// Z-axis: Performance      (percentage)
-			legacyCsv += fmt.Sprintf("%v\t%v\t%v\n",
-				analysisPeriods[ai].Minutes(),
-				operationPeriods[oi].Minutes(),
-				legacyMean.Performance)
-			newCsv += fmt.Sprintf("%v\t%v\t%v\n",
-				analysisPeriods[ai].Minutes(),
-				operationPeriods[oi].Minutes(),
-				ipSummarizedMean.Performance)
+			for simType, values := range vMap {
+				// X-axis: Analysis Period  (minute)
+				// Y-axis: Operation Period (minute)
+				// Z-axis: Performance      (percentage)
+				tsvMap[simType] += fmt.Sprintf("%v\t%v\t%v\n",
+					analysisPeriods[ai].Minutes(),
+					operationPeriods[oi].Minutes(),
+					calcMean(values).Performance, // calc mean
+				)
+			}
 
+			// new line for gnu plot
+			for _, tsvStr := range tsvMap {
+				tsvStr += "\n"
+			}
 		}
-		legacyCsv += "\n"
-		newCsv += "\n"
 	}
 	timestamp := time.Now().Format("20060102150405")
-	ioutil.WriteFile(fmt.Sprintf("ipsumm-%d-%v.tsv", sampleCount, timestamp), []byte(newCsv), 0666)
-	ioutil.WriteFile(fmt.Sprintf("legacy-%d-%v.tsv", sampleCount, timestamp), []byte(legacyCsv), 0666)
+
+	// saving to tsv file
+	for simType, tsvStr := range tsvMap {
+		filename := fmt.Sprintf("%d-%v.tsv", simType, timestamp)
+		ioutil.WriteFile(filename, []byte(tsvStr), 0644)
+	}
 }
