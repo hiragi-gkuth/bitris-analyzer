@@ -11,7 +11,7 @@ import (
 
 // querying execute sql from raw string
 func querying(query string, db *sql.DB) []*authlog.AuthInfo {
-	geoDB, err := ip2location.OpenDB("../../assets/geo/IP2LOCATION-LITE-DB5.BIN")
+	geoDB, err := ip2location.OpenDB("assets/geo/IP2LOCATION-LITE-DB5.BIN")
 
 	if err != nil {
 		panic(err.Error())
