@@ -35,9 +35,11 @@ const (
 type ISimulator interface {
 	Simulate() Results
 	Prefetch()
+	SuperPrefetch(begin, end time.Time)
 
 	SetTerm(begin time.Time, analysisPeriod, operationPeriod time.Duration)
 	SetSubnetMask(int)
+	SetSlotInterval(time.Duration, int)
 	SetSimulateType(SimulateType)
 	SetWithRTT(bool)
 	SetAttacksFilter(func(a *authlog.AuthInfo) bool)
@@ -46,26 +48,30 @@ type ISimulator interface {
 
 // Simulator は，Simulator package が提供する機能をまとめる構造体
 type Simulator struct {
-	serverID       string
-	analysisPeriod time.Duration
-	oprationPeriod time.Duration
-	simulateRange  []time.Time
-	fetchRange     []time.Time
-	regulars       authlog.AuthInfoSlice
-	attacks        authlog.AuthInfoSlice
-	fetchAttacks   authlog.AuthInfoSlice
-	attacksFilter  func(a *authlog.AuthInfo) bool
-	simulateType   SimulateType
-	withRTT        bool
-	subnetMask     int
-	verbose        bool
-	logger         *log.Logger
+	AttackServerID    string
+	OperationServerID string
+	analysisPeriod    time.Duration
+	oprationPeriod    time.Duration
+	simulateRange     []time.Time
+	fetchRange        []time.Time
+	regulars          authlog.AuthInfoSlice
+	attackAuths       authlog.AuthInfoSlice
+	attacksFilter     func(a *authlog.AuthInfo) bool
+	operationAuths    authlog.AuthInfoSlice
+	simulateType      SimulateType
+	withRTT           bool
+	subnetMask        int
+	entireDuration    time.Duration
+	divisions         int
+	verbose           bool
+	logger            *log.Logger
 }
 
 // New は，新たなシミュレータ構造体を返す
-func New(serverID string) ISimulator {
+func New(attackServerID, operationServerID string) ISimulator {
 	return &Simulator{
-		serverID: serverID,
+		AttackServerID:    attackServerID,
+		OperationServerID: operationServerID,
 	}
 }
 
@@ -79,6 +85,12 @@ func (s *Simulator) SetTerm(begin time.Time, analysisPeriod, operationPeriod tim
 // SetSubnetMask は，サブネットマスクを設定する
 func (s *Simulator) SetSubnetMask(subnetMask int) {
 	s.subnetMask = subnetMask
+}
+
+// SetSlotInterval は，時間ごと分割解析の際に使用されるパラメタを設定する
+func (s *Simulator) SetSlotInterval(entireDuration time.Duration, divisions int) {
+	s.entireDuration = entireDuration
+	s.divisions = divisions
 }
 
 // SetSimulateType は，シミュレート種別を設定する
@@ -103,19 +115,35 @@ func (s *Simulator) SetVerbose(v bool) {
 
 // Prefetch は，シミュレーション開始前にデータを取得しておく
 func (s *Simulator) Prefetch() {
-	bitris := db.NewDB(s.serverID)
+	attacksDB := db.NewDB(s.AttackServerID)
+	operationsDB := db.NewDB(s.OperationServerID)
 	// regulars が取得されていない場合のみ取得
 	if s.regulars == nil {
 		log.Println("Simulator Prefetch Regulars")
-		s.regulars = bitris.FetchSuccessSamples()
+		s.regulars = operationsDB.FetchSuccessSamples()
 	}
 	// 一度もPrefetchされていないか，Prefetchされた範囲以上がシミュレーション期間に設定されているなら，再取得
 	if s.fetchRange == nil || (s.simulateRange[0].Before(s.fetchRange[0]) || s.simulateRange[1].After(s.fetchRange[1])) {
 		log.Println("Simulator Prefetch Attacks", s.simulateRange)
-		s.fetchAttacks = bitris.FetchBetween(s.simulateRange[0], s.simulateRange[1])
+		s.attackAuths = attacksDB.FetchBetween(s.simulateRange[0], s.simulateRange[0].Add(s.analysisPeriod))
+		s.operationAuths = operationsDB.FetchBetween(s.simulateRange[0].Add(s.analysisPeriod), s.simulateRange[1])
 		s.fetchRange = make([]time.Time, 2)
 		copy(s.fetchRange, s.simulateRange)
 	}
+}
+
+// SuperPrefetch は，事前に認証情報ログを取得しておくやつ
+func (s *Simulator) SuperPrefetch(begin, end time.Time) {
+	s.simulateRange = []time.Time{begin, end}
+	attacksDB := db.NewDB(s.AttackServerID)
+	operationsDB := db.NewDB(s.OperationServerID)
+	log.Println("Simulator SuperPrefetch Regulars")
+	s.regulars = operationsDB.FetchSuccessSamples()
+	log.Println("Simulator SuperPrefetch Attacks", s.simulateRange)
+	s.attackAuths = attacksDB.FetchBetween(begin, end)
+	s.operationAuths = operationsDB.FetchBetween(begin, end)
+	s.fetchRange = make([]time.Time, 2)
+	copy(s.fetchRange, s.simulateRange)
 }
 
 // Simulate は，実際にシミュレーションを実行する
@@ -127,11 +155,11 @@ func (s *Simulator) Simulate() Results {
 	// fetching
 	s.Prefetch()
 
-	analyzeData := s.fetchAttacks.Where(func(a *authlog.AuthInfo) bool {
+	analyzeData := s.attackAuths.Where(func(a *authlog.AuthInfo) bool {
 		return !a.AuthAt.Before(s.simulateRange[0]) && a.AuthAt.Before(s.simulateRange[0].Add(s.analysisPeriod))
 	})
 
-	operationData := s.fetchAttacks.Where(func(a *authlog.AuthInfo) bool {
+	operationData := s.operationAuths.Where(func(a *authlog.AuthInfo) bool {
 		return !a.AuthAt.Before(s.simulateRange[0].Add(s.analysisPeriod)) && a.AuthAt.Before(s.simulateRange[1])
 	})
 
@@ -162,8 +190,10 @@ func (s *Simulator) Simulate() Results {
 	if s.simulateType&TimeSummarized != 0 {
 		results[TimeSummarized] = s.calcTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
 	}
+	if s.simulateType&IPTimeSummarized != 0 {
+		results[IPTimeSummarized] = s.calcIPTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
+	}
 
-	// fmt.Printf("> End all simulations.\n")
 	return Results{
 		Begin:           s.simulateRange[0],
 		End:             s.simulateRange[1],

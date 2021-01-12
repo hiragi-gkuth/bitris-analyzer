@@ -1,8 +1,6 @@
 package simulator
 
 import (
-	"time"
-
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/summarizer"
@@ -13,14 +11,12 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regulars, s.withRTT)
 	baseThreshold := baseCalculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
-	// TODO: shit of shit implement
-	// DO NOT CHANGE THIS PARAMETERS
-	interval := 24 * time.Hour
-	division := 24
-
 	/* construct time-threshold map */
 	timeThresholdTable := make(map[string]analyzer.Detections)
-	for _, summary := range summarizer.ByTime(analyzeData, interval, division) {
+	for _, summary := range summarizer.ByTime(analyzeData, s.entireDuration, s.divisions) {
+		if len(summary.Auths) == 0 { // サマリ結果が0なら解析しない
+			continue
+		}
 		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regulars, s.withRTT)
 		threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
@@ -32,7 +28,7 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 	detectedCount := 0
 	useDefaultCount := 0
 	for _, attack := range testData {
-		key := summarizer.GetKeyFromAuthAt(attack.AuthAt, interval, division)
+		key := summarizer.GetKeyFromAuthAt(attack.AuthAt, s.entireDuration, s.divisions)
 		threshold, ok := timeThresholdTable[key]
 		if !ok { // 見つけられなかったらデフォルトのしきい値を使用
 			threshold = baseThreshold
