@@ -36,13 +36,29 @@ func ByIP(auths authlog.AuthInfoSlice, subnetMask int) ByIPSummarySlice {
 			}
 		}
 	}
+	return summaryMap.ToSlice()
+}
 
-	// convert to Slice
-	summarySlice := ByIPSummarySlice{}
-	entireLen := len(auths)
-	for _, summary := range summaryMap {
-		summary.Percentage = float64(len(summary.Auths)) / float64(entireLen)
-		summarySlice = append(summarySlice, summary)
+// ToMap convert ByIPSummarySlice to Map
+func (biss ByIPSummarySlice) ToMap(subnetMask int) ByIPSummaryMap {
+	m := make(ByIPSummaryMap)
+	for _, summ := range biss {
+		subnet := summ.IP.SubnetMask(subnetMask)
+		m[subnet] = summ
 	}
-	return summarySlice
+	return m
+}
+
+// ToSlice convert ByIPSummaryMap to Slice
+func (bism ByIPSummaryMap) ToSlice() ByIPSummarySlice {
+	s := make(ByIPSummarySlice, 0)
+	entireCount := 0
+	for _, summ := range bism {
+		entireCount += len(summ.Auths)
+	}
+	for _, summ := range bism {
+		summ.Percentage = float64(len(summ.Auths)) / float64(entireCount)
+		s = append(s, summ)
+	}
+	return s
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
-	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
 )
 
 // ByTimeSummary は，IPアドレスごとにまとめられた認証情報を示す
@@ -20,7 +19,7 @@ type ByTimeSummary struct {
 type ByTimeSummarySlice []*ByTimeSummary
 
 // ByTimeSummaryMap は，ByTimeSummaryのマップ
-type ByTimeSummaryMap map[net.IP]*ByTimeSummary
+type ByTimeSummaryMap map[string]*ByTimeSummary
 
 // ByTime は，引数に与えられた認証情報のスライスを，interval単位内で，divisions分割した要約を返す
 func ByTime(auths authlog.AuthInfoSlice, interval time.Duration, divisions int) ByTimeSummarySlice {
@@ -44,6 +43,24 @@ func ByTime(auths authlog.AuthInfoSlice, interval time.Duration, divisions int) 
 // Key returns map key to construct TimeThreshold map
 func (vts ByTimeSummary) Key() string {
 	return fmt.Sprintf("%v", vts.Slot.Begin())
+}
+
+// ToMap convert ByTimeSummarySlice to Map
+func (btss ByTimeSummarySlice) ToMap() ByTimeSummaryMap {
+	m := make(ByTimeSummaryMap)
+	for _, summ := range btss {
+		m[summ.Key()] = summ
+	}
+	return m
+}
+
+// ToSlice convert ByTimeSummaryMap to Slice
+func (btsm ByTimeSummaryMap) ToSlice() ByTimeSummarySlice {
+	s := make(ByTimeSummarySlice, 0)
+	for _, summ := range btsm {
+		s = append(s, summ)
+	}
+	return s
 }
 
 // GetKeyFromAuthAt is
