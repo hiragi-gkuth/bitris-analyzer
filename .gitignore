@@ -1,2 +1,6 @@
 .DS_Store
-.envresults*
+.env
+results*
+
+datasize/
+assets/dumps/

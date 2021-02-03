@@ -100,7 +100,7 @@ func showTopScores() {
 }
 
 func fetchBestScoreAuthInfo() authlog.AuthInfo {
-	bitris := db.NewDB("cririn")
+	bitris := db.NewDB("", 3306, "", "", "cririn")
 	successes := bitris.FetchSuccessSamples()
 	fastest := successes.Max(func(s *authlog.AuthInfo) float64 { return s.Authtime })
 

@@ -1,4 +1,4 @@
-package analyze
+package threshold
 
 import (
 	"fmt"
@@ -22,15 +22,6 @@ func (o *OnIP) Set(ipStr string, threshold float64) {
 	o.m[ipnet.String()] = threshold
 }
 
-// Get gets threshold from ipStr
-// func (o *OnIP) Get(ipStr string) (float64, bool) {
-// 	ip := net.ParseIP(ipStr)
-// 	subnet := ip.Mask(o.mask)
-// 	threshold, ok := o.m[subnet.String()]
-
-// 	return threshold, ok
-// }
-
 // Get gets threshold from ip
 func (o *OnIP) Get(ip net.IP) (float64, bool) {
 	_, ipnet, e := net.ParseCIDR(fmt.Sprintf("%s/%d", ip.String(), o.mask))
@@ -41,6 +32,11 @@ func (o *OnIP) Get(ip net.IP) (float64, bool) {
 	threshold, ok := o.m[ipnet.String()]
 
 	return threshold, ok
+}
+
+// List gets all maps of OnIP data
+func (o OnIP) List() map[string]float64 {
+	return o.m
 }
 
 // NewOnIP returns new one

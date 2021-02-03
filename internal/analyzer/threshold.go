@@ -2,6 +2,7 @@
 package analyzer
 
 import (
+	"log"
 	"sort"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
@@ -31,6 +32,9 @@ func (d Detections) Performance() float64 {
 
 // NewThresholdCalculator は，しきい値に関する機能を提供するインスタンスを返す
 func NewThresholdCalculator(attacks authlog.AuthInfoSlice, regulars authlog.AuthInfoSlice, withRTT bool) ThresholdCalculator {
+	if len(attacks) == 0 || len(regulars) == 0 {
+		log.Print("Warn: empty attack auths")
+	}
 	return ThresholdCalculator{
 		attacks,
 		regulars,

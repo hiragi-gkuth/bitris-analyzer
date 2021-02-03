@@ -9,6 +9,13 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 )
 
+const (
+	dbHost = "10.1.228.33"
+	dbPort = 3306
+	dbUser = "hiragi-gkuth"
+	dbPass = "emyure-ta"
+)
+
 // DTF is DateTimeFormat
 const (
 	dateTimeFormat = "2006-01-02 15:04:05"
@@ -115,8 +122,8 @@ func (s *Simulator) SetVerbose(v bool) {
 
 // Prefetch は，シミュレーション開始前にデータを取得しておく
 func (s *Simulator) Prefetch() {
-	attacksDB := db.NewDB(s.AttackServerID)
-	operationsDB := db.NewDB(s.OperationServerID)
+	attacksDB := db.NewDB(dbHost, dbPort, dbUser, dbPass, s.AttackServerID)
+	operationsDB := db.NewDB(dbHost, dbPort, dbUser, dbPass, s.OperationServerID)
 	// regulars が取得されていない場合のみ取得
 	if s.regulars == nil {
 		log.Println("Simulator Prefetch Regulars")
@@ -135,8 +142,8 @@ func (s *Simulator) Prefetch() {
 // SuperPrefetch は，事前に認証情報ログを取得しておくやつ
 func (s *Simulator) SuperPrefetch(begin, end time.Time) {
 	s.simulateRange = []time.Time{begin, end}
-	attacksDB := db.NewDB(s.AttackServerID)
-	operationsDB := db.NewDB(s.OperationServerID)
+	attacksDB := db.NewDB(dbHost, dbPort, dbUser, dbPass, s.AttackServerID)
+	operationsDB := db.NewDB(dbHost, dbPort, dbUser, dbPass, s.OperationServerID)
 	log.Println("Simulator SuperPrefetch Regulars")
 	s.regulars = operationsDB.FetchSuccessSamples()
 	log.Println("Simulator SuperPrefetch Attacks", s.simulateRange)

@@ -5,8 +5,8 @@
 package authlog
 
 import (
-	"math"
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -25,21 +25,24 @@ func (rcv AuthInfoSlice) Where(fn func(*AuthInfo) bool) (result AuthInfoSlice) {
 
 // Max returns max data based on fn
 func (rcv AuthInfoSlice) Max(fn func(*AuthInfo) float64) AuthInfo {
-	sort.Slice(rcv, func(i, j int) bool { return fn(rcv[i]) < fn(rcv[j]) })
+	sort.Slice(rcv, func(i, j int) bool { return fn(rcv[i]) > fn(rcv[j]) })
 	return *rcv[0]
 }
 
 // Min returns min data based on fn
 func (rcv AuthInfoSlice) Min(fn func(*AuthInfo) float64) AuthInfo {
-	sort.Slice(rcv, func(i, j int) bool { return fn(rcv[i]) > fn(rcv[j]) })
+	sort.Slice(rcv, func(i, j int) bool { return fn(rcv[i]) < fn(rcv[j]) })
 	return *rcv[0]
 }
 
 // Percentile returns quantiled element based on q param
 func (rcv AuthInfoSlice) Percentile(p float64, fn func(*AuthInfo) float64) (int, AuthInfo) {
+	if len(rcv) == 0 {
+		panic("Cannot calc percentile for empty slice")
+	}
 	// sorting slice min - max order
-	sort.Slice(rcv, func(i ,j int) bool { return fn(rcv[i]) > fn(rcv[j]) })
-	pos := int(math.Round(float64(len(rcv)) * p))
+	sort.Slice(rcv, func(i, j int) bool { return fn(rcv[i]) < fn(rcv[j]) })
+	pos := int(math.Trunc(float64(len(rcv)) * p))
 	return pos, *rcv[pos]
 }
 

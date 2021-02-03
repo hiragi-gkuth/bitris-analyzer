@@ -1,7 +1,6 @@
-package analyze
+package threshold
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -10,7 +9,7 @@ type OnTime struct {
 	Entire    time.Duration
 	Divisions int
 	m         map[int64]float64
-	unit      int64
+	unit      time.Duration
 }
 
 // NewOnTime returns new one
@@ -18,22 +17,20 @@ func NewOnTime(entireDuration time.Duration, divisions int) *OnTime {
 	return &OnTime{
 		Entire:    entireDuration,
 		Divisions: divisions,
-		unit:      entireDuration.Nanoseconds() / int64(divisions),
+		unit:      entireDuration / time.Duration(divisions),
 		m:         make(map[int64]float64),
 	}
 }
 
 // Set sets threshold for time
 func (o *OnTime) Set(t time.Time, threshold float64) {
-	offset, _ := time.ParseDuration(fmt.Sprintf("%dns", t.UnixNano()%o.Entire.Nanoseconds()))
-	index := offset.Nanoseconds() / o.unit
+	index := t.Truncate(time.Duration(o.unit)).Unix() % int64(o.Entire.Seconds())
 	o.m[index] = threshold
 }
 
 // Get gets threshold for time
 func (o *OnTime) Get(t time.Time) (float64, bool) {
-	offset, _ := time.ParseDuration(fmt.Sprintf("%dns", t.UnixNano()%o.Entire.Nanoseconds()))
-	index := offset.Nanoseconds() / o.unit
+	index := t.Truncate(time.Duration(o.unit)).Unix() % int64(o.Entire.Seconds())
 	threshold, ok := o.m[index]
 	return threshold, ok
 }

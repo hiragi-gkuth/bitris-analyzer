@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
@@ -23,9 +22,8 @@ func main() {
 		sampleCount,
 		time.Duration(maxDuration)*time.Hour,
 		time.Duration(timeResolution)*time.Minute,
-		simulator.IPSummarized|simulator.TimeSummarized|simulator.Legacy,
+		simulator.IPSummarized|simulator.TimeSummarized, //|simulator.Legacy|simulator.IPTimeSummarized,
 	)
-
 }
 
 func examineParamsOfSimulationIntervalAndAnalyzeRatio(
@@ -45,22 +43,22 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio(
 	analysisPeriods := make([]time.Duration, len(operationPeriods))
 	copy(analysisPeriods, operationPeriods)
 
-	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-11-04 00:00:00")
+	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-12-01 00:00:00")
 	withRTT := true
 	subnetMask := 16
 
 	// setup Simulator
-	sim := simulator.New(serverID)
+	sim := simulator.New("uehara", "cririn")
 	sim.SetSubnetMask(subnetMask)
 	sim.SetWithRTT(withRTT)
 	sim.SetSimulateType(simulateType)
+	sim.SetSlotInterval(24*time.Hour, 24)
 
 	examineResults := [][][]simulator.Results{}
 
 	// do prefetching
 	// 調査範囲全てのアクセスを取得するため， begin から begin + (maxDuration * 2) * sampleCount ぶん取得する
-	sim.SetTerm(begin, 0, maxDuration*2*time.Duration(sampleCount))
-	sim.Prefetch()
+	sim.SuperPrefetch(begin, begin.Add(24*4*time.Hour))
 
 	log.Println("examine params begin")
 	for _, analysisPeriod := range analysisPeriods { // when analysis period is...
@@ -69,28 +67,20 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio(
 		for _, operationPeriod := range operationPeriods { // when operation period is...
 			fmt.Printf("  Operation Period: %v", operationPeriod)
 			byIntervalResult := []simulator.Results{}
-			var wg sync.WaitGroup
 			n := time.Now()
 			for sc := 0; sc < sampleCount; sc++ { // sampling some
-				wg.Add(1)
-				// simulation offset slides "operationPeriod" per sample
-				go func(i int) {
-					defer wg.Done()
-					b := begin.Add(time.Duration(i) * operationPeriod)
-					sim.SetTerm(b, analysisPeriod, operationPeriod)
-					results := sim.Simulate()
-					byIntervalResult = append(byIntervalResult, results)
-					fmt.Print(".")
-				}(sc)
+				b := begin.Add(time.Duration(sc) * operationPeriod)
+				sim.SetTerm(b, analysisPeriod, operationPeriod)
+				results := sim.Simulate()
+				byIntervalResult = append(byIntervalResult, results)
+				fmt.Print(".")
 			}
-			wg.Wait()
 			fmt.Println(" done.", time.Since(n))
 			byIntervalExamineResults = append(byIntervalExamineResults, byIntervalResult)
 		}
 		examineResults = append(examineResults, byIntervalExamineResults)
 	}
 	toCsv(examineResults, sampleCount, analysisPeriods, operationPeriods)
-
 	return examineResults
 }
 
@@ -161,11 +151,10 @@ func toCsv(examineResults3d [][][]simulator.Results, sampleCount int, analysisPe
 					calcMean(values).Performance, // calc mean
 				)
 			}
-
-			// new line for gnu plot
-			for _, tsvStr := range tsvMap {
-				tsvStr += "\n"
-			}
+		}
+		// new line for gnu plot
+		for k := range tsvMap {
+			tsvMap[k] += "\n"
 		}
 	}
 	timestamp := time.Now().Format("20060102150405")

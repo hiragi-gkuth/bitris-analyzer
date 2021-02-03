@@ -22,7 +22,7 @@ func plottingCorrelation(serverID string) {
 	begin, _ := time.Parse(DateTimeFormat, "2020-09-01 00:00:00")
 	end, _ := time.Parse(DateTimeFormat, "2020-10-15 00:00:00")
 
-	db := db.NewDB(serverID)
+	db := db.NewDB("10.1.228.32", 3306, "root", "user", "uehara")
 
 	attacks := db.FetchBetween(begin, end)
 	attacksW := attacks.Where(func(ad *authlog.AuthInfo) bool {
@@ -46,7 +46,7 @@ func plottingMyselfMap(serverID string) {
 	end, _ := time.Parse(DateTimeFormat, "2020-10-04 00:00:00")
 	interval := 7 * 24 * time.Hour
 
-	bitris := db.NewDB(serverID)
+	bitris := db.NewDB("10.1.228.32", 3306, "root", "user", "uehara")
 
 	for seeker := begin; seeker.Before(end); seeker = seeker.Add(interval) {
 		attacks := bitris.FetchBetween(seeker, seeker.Add(interval))
