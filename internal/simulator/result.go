@@ -12,6 +12,7 @@ type Result struct {
 	DetectionRate    float64
 	MisDetectionRate float64
 	Performance      float64
+	CalcTime         time.Duration
 }
 
 // Results は，結果のまとめ

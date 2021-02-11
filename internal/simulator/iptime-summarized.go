@@ -1,6 +1,9 @@
 package simulator
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/net"
@@ -18,6 +21,7 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regulars, s.withRTT)
 	baseThreshold := baseCalculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
+	cst := time.Now()
 	/* construct ip-threshold map */
 	ipTimeThreMap := make(map[net.IP]ipTimeThreshold)
 	for _, ipSumm := range summarizer.ByIPTime(analyzeData, s.subnetMask, s.entireDuration, s.divisions) {
@@ -48,6 +52,9 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 		timeThresholdTable[summary.Key()] = threshold
 	}
 
+	thresholdTime := time.Since(cst)
+	// pp.Print(ipTimeThreMap)
+
 	/* check performance */
 	// detection rate
 	detectedCount := 0
@@ -57,6 +64,8 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 	timeHitCount := 0
 
 	c := 0
+
+	fmt.Printf("attacks: %d", len(testData))
 	for _, attack := range testData {
 		c++
 		threshold := analyzer.Detections{}
@@ -89,23 +98,17 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 		}
 		judge := s.selectAuthtime(attack) < threshold.Authtime
 		judgeByIP := s.selectAuthtime(attack) < ipThreshold.Authtime
+		// judgeBase := s.selectAuthtime(attack) < baseThreshold.Authtime
 		if judge || judgeByIP { // TODO: invalid
 			detectedCount++
 		}
 
-		degCnt := 0
-		impCnt := 0
-		if judge && !judgeByIP {
-			// key := summarizer.GetKeyFromAuthAt(attack.AuthAt, s.entireDuration, s.divisions)
-			// fmt.Printf("Improve: %.3f -> %.3f(%.3f)[%v]\n", ipThreshold.Authtime, threshold.Authtime, attack.Authtime, key)
-			impCnt++
-		}
-		if !judge && judgeByIP {
-			// key := summarizer.GetKeyFromAuthAt(attack.AuthAt, s.entireDuration, s.divisions)
-			// fmt.Printf("Degrade: %.3f -> %.3f(%.3f)[%v]\n", ipThreshold.Authtime, threshold.Authtime, attack.Authtime, key)
-			degCnt++
-		}
+		// if (judge || judgeByIP) && !judgeBase {
+		// 	fmt.Printf("in1: %f ->> j: %.3f ji: %.3f jb: %.3f\n", s.selectAuthtime(attack), threshold.Authtime, ipThreshold.Authtime, baseThreshold.Authtime)
+		// }
 	}
+
+	fmt.Printf("useDefault: %d", useDefaultCount)
 	detectionRate := float64(detectedCount) / float64(len(testData))
 	hitRate := 1.0 - float64(useDefaultCount)/float64(len(testData))
 
@@ -138,5 +141,6 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 		DetectionRate:    detectionRate,
 		MisDetectionRate: misDetectionRate,
 		Performance:      detectionRate - misDetectionRate,
+		CalcTime:         thresholdTime,
 	}
 }

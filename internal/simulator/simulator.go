@@ -189,15 +189,18 @@ func (s *Simulator) Simulate() Results {
 
 	results := make(map[SimulateType]Result)
 	if s.simulateType&Legacy != 0 {
+		log.Print("legacy")
 		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, operationData, s.regulars)
 	}
 	if s.simulateType&IPSummarized != 0 {
 		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regulars)
 	}
 	if s.simulateType&TimeSummarized != 0 {
+
 		results[TimeSummarized] = s.calcTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
 	}
 	if s.simulateType&IPTimeSummarized != 0 {
+		log.Print("iptime")
 		results[IPTimeSummarized] = s.calcIPTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
 	}
 

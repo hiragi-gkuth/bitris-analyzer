@@ -7,6 +7,10 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
 
+func main() {
+	abstractScience()
+}
+
 func abstractScience() {
 	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-11-04 00:00:00")
 	end := begin.Add(24 * 21 * time.Hour)
@@ -16,19 +20,16 @@ func abstractScience() {
 	sim.SetSimulateType(simulator.Legacy | simulator.TimeSummarized | simulator.IPSummarized | simulator.IPTimeSummarized)
 	sim.SetSubnetMask(24)
 	sim.SetSlotInterval(24*time.Hour, 24)
-	sim.SetVerbose(true)
+	sim.SetVerbose(false)
 	sim.SetWithRTT(true)
 
 	sim.SuperPrefetch(begin, end)
 
-	baseThresholds := []float64{}
-	legacyDetecs := []float64{}
-	timeDetecs := []float64{}
-	ipDetecs := []float64{}
-	ipTimeDetecs := []float64{}
-	hitRates := []float64{}
+	content := "\n"
 
-	for i := 0; i < 20; i++ {
+	content += fmt.Sprintf("date,base,legDetec,legMiss,newDetec,newMiss\n")
+
+	for i := 0; i <= 20; i++ {
 		aPeriod := 24 * time.Hour
 		oPeriod := 24 * time.Hour
 		b := begin.Add(time.Duration(i) * 24 * time.Hour)
@@ -36,17 +37,12 @@ func abstractScience() {
 		sim.SetTerm(b, aPeriod, oPeriod)
 		results := sim.Simulate()
 
-		baseThresholds = append(baseThresholds, results.Of[simulator.Legacy].BaseThreshold)
-		legacyDetecs = append(legacyDetecs, results.Of[simulator.Legacy].DetectionRate)
-		ipTimeDetecs = append(ipTimeDetecs, results.Of[simulator.IPTimeSummarized].DetectionRate)
-		ipDetecs = append(ipDetecs, results.Of[simulator.IPSummarized].DetectionRate)
-		timeDetecs = append(timeDetecs, results.Of[simulator.TimeSummarized].DetectionRate)
-		hitRates = append(hitRates, results.Of[simulator.IPSummarized].HitRate)
+		l := results.Of[simulator.Legacy]
+		n := results.Of[simulator.IPTimeSummarized]
+
+		content += fmt.Sprintf("%s,%f,%f,%f,%f\n", b.Format("2006-01-02 15:04:05"),
+			l.DetectionRate, l.MisDetectionRate, n.DetectionRate, n.MisDetectionRate)
 	}
 
-	fmt.Printf("base,legacy,ip,time,ip-time,hitrate\n")
-	// 集計
-	for i := 0; i < 20; i++ {
-		fmt.Printf("%v,%v,%v,%v,%v,%v\n", baseThresholds[i], legacyDetecs[i], ipDetecs[i], timeDetecs[i], ipTimeDetecs[i], hitRates[i])
-	}
+	fmt.Println(content)
 }
