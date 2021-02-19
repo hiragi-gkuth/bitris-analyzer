@@ -15,6 +15,12 @@ func (b *Bitris) FetchSuccessSamples() authlog.AuthInfoSlice {
 	return querying(query, b.DB)
 }
 
+// FetchAll returns all authlog
+func (b *Bitris) FetchAll() authlog.AuthInfoSlice {
+	query := fmt.Sprintf("SELECT * FROM %s", b.ServerID)
+	return querying(query, b.DB)
+}
+
 // FetchLatest returns latest logs
 func (b *Bitris) FetchLatest(limit int) authlog.AuthInfoSlice {
 	query := fmt.Sprintf("SELECT * FROM %s ORDER BY id DESC LIMIT %v", b.ServerID, limit)
