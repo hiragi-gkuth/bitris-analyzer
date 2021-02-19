@@ -7,10 +7,6 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
 
-func main() {
-	abstractScience()
-}
-
 func abstractScience() {
 	begin, _ := time.Parse("2006-01-02 15:04:05", "2020-11-04 00:00:00")
 	end := begin.Add(24 * 21 * time.Hour)
@@ -27,7 +23,7 @@ func abstractScience() {
 
 	content := "\n"
 
-	content += fmt.Sprintf("date,base,legDetec,legMiss,newDetec,newMiss\n")
+	content += "date,base,legDetec,legMiss,newDetec,newMiss\n"
 
 	for i := 0; i <= 20; i++ {
 		aPeriod := 24 * time.Hour
