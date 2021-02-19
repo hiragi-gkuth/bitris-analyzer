@@ -1,6 +1,7 @@
 package analyze
 
 import (
+	"log"
 	"time"
 
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/authlog"
@@ -9,9 +10,13 @@ import (
 
 func (a *Analyze) fetchAuthLogs(duration time.Duration) (authlog.AuthInfoSlice, authlog.AuthInfoSlice) {
 	now := time.Now()
-	prev := now.Truncate(duration)
+	prev := now.Add(-duration)
 
-	db := db.NewDB(a.ServerID)
+	log.Printf("Fetch %v -> %v", prev, now)
+
+	p := a.Param
+
+	db := db.NewDB(p.LogServerHost, p.LogServerPort, "hiragi-gkuth", "emyure-ta", p.ServerID)
 	defer db.DB.Close()
 
 	authLogs := db.FetchBetween(prev, now)
