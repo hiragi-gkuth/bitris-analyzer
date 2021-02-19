@@ -3,10 +3,8 @@ package db
 
 import (
 	"database/sql"
-	"os"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 )
 
 // Bitris is DB ORM
@@ -16,23 +14,20 @@ type Bitris struct {
 }
 
 // NewDB Returns DB ORM instance
-func NewDB(serverID string) *Bitris {
-	db := getDBConnection()
+func NewDB(host string, port int, user string, passwd string, serverID string) *Bitris {
+	db := getDBConnection(host, port, user, passwd)
 	return &Bitris{serverID, db}
 }
 
 // getDBConnection return db connection
-func getDBConnection() *sql.DB {
+func getDBConnection(host string, port int, user string, passwd string) *sql.DB {
 	config := mysql.NewConfig()
-	e := godotenv.Load(".env")
-	if e != nil {
-		panic(e.Error())
-	}
-	config.User = os.Getenv("BITRIS_DB_USER")
-	config.Passwd = os.Getenv("BITRIS_DB_PASSWD")
-	config.DBName = os.Getenv("BITRIS_DB_NAME")
-	config.Net = os.Getenv("BITRIS_DB_NET")
-	config.Addr = os.Getenv("BITRIS_DB_ADDR")
+
+	config.Addr = host
+	config.User = user
+	config.Passwd = passwd
+	config.DBName = "bitris"
+	config.Net = "tcp"
 
 	db, e := sql.Open("mysql", config.FormatDSN())
 	if e != nil {
