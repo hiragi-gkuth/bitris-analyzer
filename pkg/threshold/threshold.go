@@ -3,7 +3,6 @@ package threshold
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -43,67 +42,4 @@ func (rcv *Threshold) Show() {
 			fmt.Printf("    %v ->\t %.3f\n", time.Duration(t*int64(time.Second)), thresholdForTime)
 		}
 	}
-}
-
-// CreateTableSQL returns create table sql for new threshold table
-func (rcv *Threshold) CreateTableSQL(serverID string) string {
-	now := time.Now()
-	tableName := fmt.Sprintf("%s_%s", serverID, now.Format("2006010215"))
-
-	sql := fmt.Sprintf("CREATE TABLE %s (\n"+
-		"`addr` VARCHAR(64) NOT NULL,\n"+
-		"`mask` INT unsigned NOT NULL,\n"+
-		"`entireperiod` INT unsigned NOT NULL,\n"+
-		"`div` INT unsigned NOT NULL,\n"+
-		"`pos` INT unsigned NOT NULL,\n"+
-		"`threshold` DOUBLE unsigned NOT NULL\n"+
-		");\n", tableName)
-
-	return sql
-}
-
-// InsertSQL returns insert sql for store threshold data
-func (rcv *Threshold) InsertSQL(serverID string) string {
-	now := time.Now()
-	tableName := fmt.Sprintf("%s_%s", serverID, now.Format("2006010215"))
-
-	sql := fmt.Sprintf("INSERT INTO %s VALUES\n", tableName)
-
-	/*
-		SQL insertion process.
-		Table Description is
-		(addr, mask, entireperiod, div, pos, threshold)
-	*/
-	// base threshold insertion
-	sql += fmt.Sprintf("	('%s', %d, %d, %d, %d, %f),\n",
-		"0.0.0.0", 0, 0, 0, 0, rcv.BaseThreshold)
-
-	// onIP threshold insertion
-	for ip, threshold := range rcv.OnIP.m {
-		addr := strings.Split(ip, "/")[0]
-		sql += fmt.Sprintf("	('%s', %d, %d, %d, %d, %f),\n",
-			addr, rcv.OnIP.mask, 0, 0, 0, threshold)
-	}
-
-	// onTime threshold insertion
-	for t, threshold := range rcv.OnTime.m {
-		sec := int64(rcv.OnTime.Entire.Truncate(time.Second).Seconds())
-		sql += fmt.Sprintf("	('%s', %d, %d, %d, %d, %f),\n",
-			"0.0.0.0", 0, sec, rcv.OnTime.Divisions, t, threshold)
-	}
-
-	// onIPTime threshold insertion
-	for ip, onTime := range rcv.OnIPTime.m {
-		addr := strings.Split(ip, "/")[0]
-		for t, threshold := range onTime.m {
-			sec := int64(rcv.OnTime.Entire.Truncate(time.Second).Seconds())
-			sql += fmt.Sprintf("	('%s', %d, %d, %d, %d, %f),\n",
-				addr, rcv.OnIP.mask, sec, onTime.Divisions, t, threshold)
-		}
-	}
-	// suffix semi colon
-	sql = strings.TrimRight(sql, ",\n")
-	sql += ";\n"
-
-	return sql
 }
