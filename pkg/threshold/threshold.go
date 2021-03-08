@@ -3,6 +3,7 @@ package threshold
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
 
@@ -35,9 +36,10 @@ func (rcv *Threshold) Show() {
 	}
 
 	fmt.Println("OnIPTime:")
-	for ip, threshold := range rcv.OnIPTime.onIP.List() {
-		fmt.Printf("  %s ->\t %.3f\n", ip, threshold)
-		onTime := rcv.OnIPTime.GetByIP(ip)
+	for ipStr, threshold := range rcv.OnIPTime.onIP.List() {
+		ip := net.ParseIP(ipStr)
+		fmt.Printf("  %s ->\t %.3f\n", ip.String(), threshold)
+		onTime, _ := rcv.OnIPTime.GetByIP(ip)
 		for t, thresholdForTime := range onTime.m {
 			fmt.Printf("    %v ->\t %.3f\n", time.Duration(t*int64(time.Second)), thresholdForTime)
 		}

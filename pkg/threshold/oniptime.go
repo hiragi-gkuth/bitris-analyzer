@@ -56,6 +56,12 @@ func (rcv *OnIPTime) SetForIPTime(ipStr string, t time.Time, threshold float64) 
 }
 
 // GetByIP は，指定されたIPに対する時間ごとしきい値を返す
-func (rcv OnIPTime) GetByIP(ipStr string) *OnTime {
-	return rcv.m[ipStr]
+func (rcv OnIPTime) GetByIP(ip net.IP) (*OnTime, bool) {
+	_, ipnet, e := net.ParseCIDR(fmt.Sprintf("%s/%d", ip.String(), rcv.onIP.mask))
+	if e != nil {
+		log.Print("failed to get OnIP due to invalid ip")
+		return nil, false
+	}
+	onTime, ok := rcv.m[ipnet.String()]
+	return onTime, ok
 }
