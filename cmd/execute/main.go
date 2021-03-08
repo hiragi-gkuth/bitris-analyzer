@@ -2,23 +2,35 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyze"
+	"github.com/hiragi-gkuth/bitris-analyzer/pkg/threshold"
+)
+
+const ( // edit here to set Database User, Pass, Name
+	dbUser = ""
+	dbPass = ""
+	dbName = ""
 )
 
 func main() {
 	param := parse()
 
 	analyze := analyze.New(param)
+	idsModel := analyze.Analyze()
 
-	result := analyze.Analyze()
-	createTableSQL := result.CreateTableSQL("uehara")
-	insertSQL := result.InsertSQL("uehara")
+	repository := threshold.NewRepository(param.ServerID, mysql.Config{
+		Addr:                 param.LogServerHost,
+		AllowNativePasswords: true,
+		Net:                  "tcp",
+		DBName:               dbName,
+		User:                 dbUser,
+		Passwd:               dbPass,
+	})
 
-	ioutil.WriteFile("create.sql", []byte(createTableSQL), 0644)
-	ioutil.WriteFile("insert.sql", []byte(insertSQL), 0644)
+	repository.Save(idsModel)
 }
 
 func parse() analyze.Param {
