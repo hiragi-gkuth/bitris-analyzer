@@ -15,8 +15,15 @@ func (a *Analyze) fetchAuthLogs(duration time.Duration) (authlog.AuthInfoSlice, 
 	log.Printf("Fetch %v -> %v", prev, now)
 
 	p := a.Param
+	config := db.Config{
+		ServerID: p.ServerID,
+		Host:     p.LogServerHost,
+		User:     p.User,
+		Pass:     p.Pass,
+		DBName:   "bitris",
+	}
 
-	db := db.NewDB(p.LogServerHost, p.LogServerPort, "hiragi-gkuth", "emyure-ta", p.ServerID)
+	db := db.NewDB(config)
 	defer db.DB.Close()
 
 	authLogs := db.FetchBetween(prev, now)

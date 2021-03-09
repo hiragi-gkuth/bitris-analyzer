@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/analyze"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/threshold"
 )
@@ -17,18 +18,26 @@ const ( // edit here to set Database User, Pass, Name
 
 func main() {
 	param := parse()
-
-	analyze := analyze.New(param)
-	idsModel := analyze.Analyze()
-
-	repository := threshold.NewRepository(param.ServerID, mysql.Config{
+	mysqlConfig := mysql.Config{
 		Addr:                 param.LogServerHost,
 		AllowNativePasswords: true,
 		Net:                  "tcp",
 		DBName:               dbName,
 		User:                 dbUser,
 		Passwd:               dbPass,
-	})
+	}
+
+	dbConfig := db.Config{
+		ServerID: param.ServerID,
+		Host:     param.LogServerHost,
+		User:     dbUser,
+		Pass:     dbPass,
+	}
+
+	analyze := analyze.New(param, dbConfig)
+	idsModel := analyze.Analyze()
+
+	repository := threshold.NewRepository(param.ServerID, mysqlConfig)
 
 	repository.Save(idsModel)
 }

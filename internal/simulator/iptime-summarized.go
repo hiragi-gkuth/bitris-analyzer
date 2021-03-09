@@ -13,21 +13,21 @@ type ipTimeThreshold struct {
 	m         map[string]analyzer.Detections
 }
 
-func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regulars authlog.AuthInfoSlice) Result {
+func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regularAuths authlog.AuthInfoSlice) Result {
 	// calc base threshold
-	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regulars, s.withRTT)
+	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regularAuths, s.withRTT)
 	baseThreshold := baseCalculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
 	/* construct ip-threshold map */
 	ipTimeThreMap := make(map[net.IP]ipTimeThreshold)
 	for _, ipSumm := range summarizer.ByIPTime(analyzeData, s.subnetMask, s.entireDuration, s.divisions) {
 		m := make(map[string]analyzer.Detections)
-		calclatorIP := analyzer.NewThresholdCalculator(ipSumm.Auths, regulars, s.withRTT)
+		calclatorIP := analyzer.NewThresholdCalculator(ipSumm.Auths, regularAuths, s.withRTT)
 		for _, timeSumm := range ipSumm.ByTime {
 			if len(timeSumm.Auths) < 8 { // サマリに一つも攻撃がなければスキップする
 				continue
 			}
-			calculator := analyzer.NewThresholdCalculator(timeSumm.Auths, s.regulars, s.withRTT)
+			calculator := analyzer.NewThresholdCalculator(timeSumm.Auths, s.regularAuths, s.withRTT)
 			threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
 			m[timeSumm.Key()] = threshold
 		}
@@ -42,7 +42,7 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 		if len(summary.Auths) == 0 { // サマリ結果が0なら解析しない
 			continue
 		}
-		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regulars, s.withRTT)
+		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regularAuths, s.withRTT)
 		threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
 		timeThresholdTable[summary.Key()] = threshold
@@ -114,12 +114,12 @@ func (s Simulator) calcIPTimeSummarizedPerformance(analyzeData, testData, regula
 	// fmt.Printf("Degrated: %d, Improved: %d\n", degCnt, impCnt)
 	// misdetection rate
 	misDetectedCount := 0
-	for _, regular := range s.regulars {
+	for _, regular := range s.regularAuths {
 		if s.selectAuthtime(regular) < baseThreshold.Authtime {
 			misDetectedCount++
 		}
 	}
-	misDetectionRate := float64(misDetectedCount) / float64(len(s.regulars))
+	misDetectionRate := float64(misDetectedCount) / float64(len(s.regularAuths))
 
 	if s.verbose {
 		s.logger.SetPrefix("[simulator:iptimesum]")

@@ -1,35 +1,50 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/simulator"
 )
 
 func main() {
-	serverID := fmt.Sprint(os.Args[1])
-	sampleCount, _ := strconv.Atoi(os.Args[2])
-	maxDuration, _ := strconv.Atoi(os.Args[3])
-	timeResolution, _ := strconv.Atoi(os.Args[4])
+
+	var (
+		serverID       = flag.String("id", "uehara", "調査対象のサーバIDを指定する")
+		dbHost         = flag.String("host", "0.0.0.0", "DBサーバアドレスを指定する")
+		dbUser         = flag.String("user", "root", "DBサーバのユーサ名を指定する")
+		dbPass         = flag.String("pass", "toor", "DBサーバのパスワードを指定する")
+		sampleCount    = flag.Int("sampleCount", 10, "調査のサンプリング数を指定する")
+		maxDuration    = flag.Int("maxDuration", 24, "調査の対象最大時間を指定する（時間）")
+		timeResolution = flag.Int("timeResolusion", 60, "調査の粒度を指定する（分）")
+	)
+	flag.Parse()
+
+	dbConfig := db.Config{
+		ServerID: *serverID,
+		Host:     *dbHost,
+		User:     *dbUser,
+		Pass:     *dbPass,
+		DBName:   "bitris",
+	}
 
 	examineParamsOfSimulationIntervalAndAnalyzeRatio(
-		serverID,
-		sampleCount,
-		time.Duration(maxDuration)*time.Hour,
-		time.Duration(timeResolution)*time.Minute,
+		dbConfig,
+		*sampleCount,
+		time.Duration(*maxDuration)*time.Hour,
+		time.Duration(*timeResolution)*time.Minute,
 		simulator.IPSummarized|simulator.TimeSummarized|simulator.Legacy,
 	)
 
 }
 
 func examineParamsOfSimulationIntervalAndAnalyzeRatio(
-	serverID string,
+	dbConfig db.Config,
 	sampleCount int,
 	maxDuration, timeResolution time.Duration,
 	simulateType simulator.SimulateType,
@@ -50,7 +65,7 @@ func examineParamsOfSimulationIntervalAndAnalyzeRatio(
 	subnetMask := 16
 
 	// setup Simulator
-	sim := simulator.New(serverID)
+	sim := simulator.New(dbConfig, dbConfig)
 	sim.SetSubnetMask(subnetMask)
 	sim.SetWithRTT(withRTT)
 	sim.SetSimulateType(simulateType)

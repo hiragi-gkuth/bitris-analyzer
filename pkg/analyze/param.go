@@ -7,6 +7,8 @@ type Param struct {
 	ServerID        string
 	LogServerHost   string
 	LogServerPort   int
+	User            string
+	Pass            string
 	AnalyzeDuration time.Duration
 	Mask            int
 	EntireDuration  time.Duration

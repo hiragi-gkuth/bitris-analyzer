@@ -3,6 +3,7 @@ package analyze
 
 import (
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/analyzer"
+	"github.com/hiragi-gkuth/bitris-analyzer/internal/db"
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/summarizer"
 	"github.com/hiragi-gkuth/bitris-analyzer/pkg/threshold"
 )
@@ -18,7 +19,7 @@ type Analyzer interface {
 }
 
 // New returns new Analyzer
-func New(param Param) Analyzer {
+func New(param Param, config db.Config) Analyzer {
 	return &Analyze{
 		Param: param,
 	}

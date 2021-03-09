@@ -6,9 +6,9 @@ import (
 	"github.com/hiragi-gkuth/bitris-analyzer/internal/summarizer"
 )
 
-func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars authlog.AuthInfoSlice) Result {
+func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regularAuths authlog.AuthInfoSlice) Result {
 	// calc base threshold
-	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regulars, s.withRTT)
+	baseCalculator := analyzer.NewThresholdCalculator(analyzeData, s.regularAuths, s.withRTT)
 	baseThreshold := baseCalculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
 	/* construct time-threshold map */
@@ -17,7 +17,7 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 		if len(summary.Auths) == 0 { // サマリ結果が0なら解析しない
 			continue
 		}
-		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regulars, s.withRTT)
+		calculator := analyzer.NewThresholdCalculator(summary.Auths, s.regularAuths, s.withRTT)
 		threshold := calculator.CalcBestThreshold(0.0, 1.5, 0.001)
 
 		timeThresholdTable[summary.Key()] = threshold
@@ -43,12 +43,12 @@ func (s Simulator) calcTimeSummarizedPerformance(analyzeData, testData, regulars
 
 	// misdetection rate
 	misDetectedCount := 0
-	for _, regular := range s.regulars {
+	for _, regular := range s.regularAuths {
 		if s.selectAuthtime(regular) < baseThreshold.Authtime {
 			misDetectedCount++
 		}
 	}
-	misDetectionRate := float64(misDetectedCount) / float64(len(s.regulars))
+	misDetectionRate := float64(misDetectedCount) / float64(len(s.regularAuths))
 
 	if s.verbose {
 		s.logger.SetPrefix("[simulator:timesum]")

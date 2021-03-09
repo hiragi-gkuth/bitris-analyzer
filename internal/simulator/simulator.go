@@ -48,30 +48,30 @@ type ISimulator interface {
 
 // Simulator は，Simulator package が提供する機能をまとめる構造体
 type Simulator struct {
-	AttackServerID    string
-	OperationServerID string
-	analysisPeriod    time.Duration
-	oprationPeriod    time.Duration
-	simulateRange     []time.Time
-	fetchRange        []time.Time
-	regulars          authlog.AuthInfoSlice
-	attackAuths       authlog.AuthInfoSlice
-	attacksFilter     func(a *authlog.AuthInfo) bool
-	operationAuths    authlog.AuthInfoSlice
-	simulateType      SimulateType
-	withRTT           bool
-	subnetMask        int
-	entireDuration    time.Duration
-	divisions         int
-	verbose           bool
-	logger            *log.Logger
+	AttackServerConfig    db.Config
+	OperationServerConfig db.Config
+	analysisPeriod        time.Duration
+	oprationPeriod        time.Duration
+	simulateRange         []time.Time
+	fetchRange            []time.Time
+	regularAuths          authlog.AuthInfoSlice
+	attackAuths           authlog.AuthInfoSlice
+	attackAuthsFilter     func(a *authlog.AuthInfo) bool
+	operationAuths        authlog.AuthInfoSlice
+	simulateType          SimulateType
+	withRTT               bool
+	subnetMask            int
+	entireDuration        time.Duration
+	divisions             int
+	verbose               bool
+	logger                *log.Logger
 }
 
 // New は，新たなシミュレータ構造体を返す
-func New(attackServerID, operationServerID string) ISimulator {
+func New(attackServerConfig, operationServerConfig db.Config) ISimulator {
 	return &Simulator{
-		AttackServerID:    attackServerID,
-		OperationServerID: operationServerID,
+		AttackServerConfig:    attackServerConfig,
+		OperationServerConfig: operationServerConfig,
 	}
 }
 
@@ -104,8 +104,8 @@ func (s *Simulator) SetWithRTT(withRTT bool) {
 }
 
 // SetAttacksFilter は，攻撃に対するフィルターを設定する
-func (s *Simulator) SetAttacksFilter(attacksFilter func(a *authlog.AuthInfo) bool) {
-	s.attacksFilter = attacksFilter
+func (s *Simulator) SetAttacksFilter(attackAuthsFilter func(a *authlog.AuthInfo) bool) {
+	s.attackAuthsFilter = attackAuthsFilter
 }
 
 // SetVerbose は詳細表示を行う
@@ -115,17 +115,17 @@ func (s *Simulator) SetVerbose(v bool) {
 
 // Prefetch は，シミュレーション開始前にデータを取得しておく
 func (s *Simulator) Prefetch() {
-	attacksDB := db.NewDB(s.AttackServerID)
-	operationsDB := db.NewDB(s.OperationServerID)
-	// regulars が取得されていない場合のみ取得
-	if s.regulars == nil {
+	attackAuthsDB := db.NewDB(s.AttackServerConfig)
+	operationsDB := db.NewDB(s.OperationServerConfig)
+	// regularAuths が取得されていない場合のみ取得
+	if s.regularAuths == nil {
 		log.Println("Simulator Prefetch Regulars")
-		s.regulars = operationsDB.FetchSuccessSamples()
+		s.regularAuths = operationsDB.FetchSuccessSamples()
 	}
 	// 一度もPrefetchされていないか，Prefetchされた範囲以上がシミュレーション期間に設定されているなら，再取得
 	if s.fetchRange == nil || (s.simulateRange[0].Before(s.fetchRange[0]) || s.simulateRange[1].After(s.fetchRange[1])) {
 		log.Println("Simulator Prefetch Attacks", s.simulateRange)
-		s.attackAuths = attacksDB.FetchBetween(s.simulateRange[0], s.simulateRange[0].Add(s.analysisPeriod))
+		s.attackAuths = attackAuthsDB.FetchBetween(s.simulateRange[0], s.simulateRange[0].Add(s.analysisPeriod))
 		s.operationAuths = operationsDB.FetchBetween(s.simulateRange[0].Add(s.analysisPeriod), s.simulateRange[1])
 		s.fetchRange = make([]time.Time, 2)
 		copy(s.fetchRange, s.simulateRange)
@@ -135,12 +135,12 @@ func (s *Simulator) Prefetch() {
 // SuperPrefetch は，事前に認証情報ログを取得しておくやつ
 func (s *Simulator) SuperPrefetch(begin, end time.Time) {
 	s.simulateRange = []time.Time{begin, end}
-	attacksDB := db.NewDB(s.AttackServerID)
-	operationsDB := db.NewDB(s.OperationServerID)
+	attackAuthsDB := db.NewDB(s.AttackServerConfig)
+	operationsDB := db.NewDB(s.OperationServerConfig)
 	log.Println("Simulator SuperPrefetch Regulars")
-	s.regulars = operationsDB.FetchSuccessSamples()
+	s.regularAuths = operationsDB.FetchSuccessSamples()
 	log.Println("Simulator SuperPrefetch Attacks", s.simulateRange)
-	s.attackAuths = attacksDB.FetchBetween(begin, end)
+	s.attackAuths = attackAuthsDB.FetchBetween(begin, end)
 	s.operationAuths = operationsDB.FetchBetween(begin, end)
 	s.fetchRange = make([]time.Time, 2)
 	copy(s.fetchRange, s.simulateRange)
@@ -163,12 +163,12 @@ func (s *Simulator) Simulate() Results {
 		return !a.AuthAt.Before(s.simulateRange[0].Add(s.analysisPeriod)) && a.AuthAt.Before(s.simulateRange[1])
 	})
 
-	// save original attacks len for calculating filter ratio
+	// save original attackAuths len for calculating filter ratio
 	aOriginalLen := len(analyzeData)
 
 	// filtering
-	if s.attacksFilter != nil {
-		analyzeData, operationData = analyzeData.Where(s.attacksFilter), operationData.Where(s.attacksFilter)
+	if s.attackAuthsFilter != nil {
+		analyzeData, operationData = analyzeData.Where(s.attackAuthsFilter), operationData.Where(s.attackAuthsFilter)
 	}
 	filterRatio := 1.0 - float64(len(analyzeData))/float64(aOriginalLen)
 
@@ -182,16 +182,16 @@ func (s *Simulator) Simulate() Results {
 
 	results := make(map[SimulateType]Result)
 	if s.simulateType&Legacy != 0 {
-		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, operationData, s.regulars)
+		results[Legacy] = s.calcLegacyMethodPerformance(analyzeData, operationData, s.regularAuths)
 	}
 	if s.simulateType&IPSummarized != 0 {
-		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regulars)
+		results[IPSummarized] = s.calcIPSummarizedPerformance(analyzeData, operationData, s.regularAuths)
 	}
 	if s.simulateType&TimeSummarized != 0 {
-		results[TimeSummarized] = s.calcTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
+		results[TimeSummarized] = s.calcTimeSummarizedPerformance(analyzeData, operationData, s.regularAuths)
 	}
 	if s.simulateType&IPTimeSummarized != 0 {
-		results[IPTimeSummarized] = s.calcIPTimeSummarizedPerformance(analyzeData, operationData, s.regulars)
+		results[IPTimeSummarized] = s.calcIPTimeSummarizedPerformance(analyzeData, operationData, s.regularAuths)
 	}
 
 	return Results{
